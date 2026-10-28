@@ -45,7 +45,7 @@ int main(){
 
     pool.cache_checkpoint() ;
 
-    char_ptr= pool.allocate<char>();
+    char_ptr= pool.allocate<char>() ;
     int_ptr = pool.allocate<int>() ;
     double_ptr = pool.allocate<double>() ;
     ptr32 = pool.allocate<huge_struct>() ;
@@ -84,6 +84,18 @@ int main(){
     ptr32 = pool.allocate<huge_struct>() ;
     ptr64 = pool.allocate<bigger_struct>() ;
     ptr128 = pool.allocate<biggerer_struct>() ;
+
+    pool.reclaim() ;
+
+    std::println("Remaning size -> {}",pool.remaining_capacity()) ;
+    std::println("Bump position -> {}",pool.acquire_bump()) ;
+
+    auto list_of_256ptrs = pool.allocate_array<super>(5) ;
+
+    std::println("Allocated 5 super structs (default constructed) at {}",static_cast<void*>(list_of_256ptrs)) ;
+
+    std::println("Remaning size -> {}",pool.remaining_capacity()) ;
+    std::println("Bump position -> {}",pool.acquire_bump()) ;
 
     return 0;
 }
