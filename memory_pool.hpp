@@ -4,11 +4,12 @@
 #include <memory>
 #include <new>
 #include <print>
+#include <ranges>
 
 #include "memory_pool_concepts.hpp"
 
 template <std::size_t size>
-requires isMultipleOfTwo<size>
+requires isNonZero<size> && isMultipleOfTwo<size>
 class memory_pool {
     private :
         void* initial_start_ = nullptr ;
@@ -38,7 +39,7 @@ class memory_pool {
 
             checkpoint_() = delete ;
 
-            explicit checkpoint_(void*& current_bump_location , std::size_t current_capacity)
+            explicit checkpoint_(void* current_bump_location , std::size_t current_capacity)
                                  : checkpoint_ptr {current_bump_location} , last_known_capacity {current_capacity}
             {
                 std::println("Checkpoint cached : Current Pointer -> {} | Current capacity -> {}",
@@ -47,7 +48,7 @@ class memory_pool {
             }
         };
 
-        checkpoint_ cached_ = { } ;
+        checkpoint_ cached_ = checkpoint_(nullptr , 0) ;
 
     public :
         explicit memory_pool() {
@@ -72,22 +73,22 @@ class memory_pool {
           std::println("Pool destructed");
         }
 
-        template <typename obj>
-        [[nodiscard]] auto allocate(std::size_t alignment = alignof(obj)) -> obj* {
+        template <typename Obj>
+        [[nodiscard]] auto allocate(std::size_t alignment = alignof(Obj)) -> Obj* {
             // Try to align our bump pointer
-            std::println("Arguments : {} , {} , {} , {}",alignment , sizeof(obj) , bump_ptr_ , capacity_);
-            auto aligned_ptr = std::align(alignment , sizeof(obj) , bump_ptr_ , capacity_) ;
+            std::println("Arguments : {} , {} , {} , {}",alignment , sizeof(Obj) , bump_ptr_ , capacity_);
+            auto aligned_ptr = std::align(alignment , sizeof(Obj) , bump_ptr_ , capacity_) ;
 
             if(aligned_ptr != nullptr){
                 std::println("aligned_ptr is not nullptr -> {}",aligned_ptr) ;
                 // Bytes used for alignment have already been subtracted from capacity_
                 // Now subtract the sizeof(obj)
-                capacity_ -= sizeof(obj) ;
+                capacity_ -= sizeof(Obj) ;
                 // The bump_ptr_ has been moved by the space needed for alignment not
                 // the sizeof(obj)
-                bump_ptr_ = static_cast<obj*>(bump_ptr_) + 1 ;
+                bump_ptr_ = static_cast<Obj*>(bump_ptr_) + 1 ;
                 // std::align returns a void* so we have to cast it to obj*
-                return static_cast<obj*>(aligned_ptr) ;
+                return static_cast<Obj*>(aligned_ptr) ;
             }
 
             // If std::align fails for some reason (not enough space etc.)
@@ -97,9 +98,11 @@ class memory_pool {
         }
 
         // Could be named just create_instance
-        template <typename obj , typename... Args>
-        [[nodiscard]] auto allocate_and_construct(Args&&... args) -> obj* {
-            auto location = this->allocate<obj>() ;
+        // Also ignore any safety checks because
+        // this is C++ duh
+        template <typename Obj , typename... Args>
+        [[nodiscard]] auto allocate_and_construct(Args&&... args) -> Obj* {
+            auto location = this->allocate<Obj>() ;
             return std::construct_at(location , std::forward<Args>(args)...) ;
         }
 
@@ -110,8 +113,12 @@ class memory_pool {
         constexpr auto reclaim() noexcept -> void {
             // Just return everything to default
             // Easy and simple RAHHHHH
+            std::println("Pool reclaimed");
+
             bump_ptr_ = initial_start_ ;
             capacity_ = size ;
+
+            return ;
         }
 
         constexpr auto owns(const void* ptr) const noexcept -> bool {
@@ -125,20 +132,48 @@ class memory_pool {
         constexpr auto cache_checkpoint() -> void {
             // Cache the checkpoint
             cached_ = checkpoint_(bump_ptr_ , capacity_) ;
+
+            return ;
         }
 
         // Not a general fuck around untill you find out API
         // Can ONLY move you back one time !!!
         constexpr auto revert() -> void {
             // An one time undo (from the point of caching the checkpoint)
+            std::println("Reverted to last cached checkpoint");
             bump_ptr_ = cached_.checkpoint_ptr ;
             capacity_ = cached_.last_known_capacity ;
+            std::println("Current location of bump pointer -> {}\nCurrent capacity -> {}",bump_ptr_,capacity_);
+
+            return ;
         }
 
         constexpr auto used_memory() const noexcept -> std::size_t {
             return size - capacity_ ;
         }
 
-        /*template <typename... Objects , typename... Args>
-            auto allocate_range() -> */
+        // Make it return a span RAHHHHHHH (too slow for my liking)
+        // AND NO SAFETY CHECKING BECAUSE IT IS C++
+        template <typename Obj , typename... Args>
+        auto allocate_array(std::size_t count) -> Obj* {
+            // Allocate the first object
+            Obj* first_in_line = this->allocate<Obj>() ;
+            // Check if for count-1 we stay inside the capacity
+            Obj* ptr_to_last = first_in_line + (count -1) ;
+            // If we stay inside return it
+            if(this->owns(ptr_to_last)){
+                return ptr_to_last ;
+            }
+
+            // If the pointer is outside , prompt (for now)
+            // then return a nullptr
+            return nullptr ;
+        }
+
+        // Get bump allocator position , will be used
+        // for testing the checkpoint feature
+        constexpr auto acquire_bump() const noexcept -> const void* {
+            return bump_ptr_ ;
+        }
+
 };

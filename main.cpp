@@ -39,9 +39,51 @@ int main(){
     std::print("64 byte -> {}\n",static_cast<void*>(ptr64)) ;
     std::print("128 byte -> {}\n",static_cast<void*>(ptr128)) ;
 
-    auto super_ptr = pool.allocate_and_construct<super>(1,2.0f,"binos",8.08f);
+    auto super_ptr = pool.allocate_and_construct<super>(2,2.0f,"binos",8.08f);
 
     std::println("{}\n{}\n{}\n{}",super_ptr->a,super_ptr->b,super_ptr->c,super_ptr->n) ;
+
+    pool.cache_checkpoint() ;
+
+    char_ptr= pool.allocate<char>();
+    int_ptr = pool.allocate<int>() ;
+    double_ptr = pool.allocate<double>() ;
+    ptr32 = pool.allocate<huge_struct>() ;
+    ptr64 = pool.allocate<bigger_struct>() ;
+    ptr128 = pool.allocate<biggerer_struct>() ;
+
+    std::print("1 byte -> {}\n",static_cast<void*>(char_ptr)) ;
+    std::print("4 byte -> {}\n",static_cast<void*>(int_ptr)) ;
+    std::print("8 byte -> {}\n",static_cast<void*>(double_ptr)) ;
+    std::print("32 byte -> {}\n",static_cast<void*>(ptr32)) ;
+    std::print("64 byte -> {}\n",static_cast<void*>(ptr64)) ;
+    std::print("128 byte -> {}\n",static_cast<void*>(ptr128)) ;
+
+    std::println("Reverting to checkpoint");
+    pool.revert() ;
+
+    char_ptr= pool.allocate<char>();
+    int_ptr = pool.allocate<int>() ;
+    double_ptr = pool.allocate<double>() ;
+    ptr32 = pool.allocate<huge_struct>() ;
+    ptr64 = pool.allocate<bigger_struct>() ;
+    ptr128 = pool.allocate<biggerer_struct>() ;
+
+    std::print("1 byte -> {}\n",static_cast<void*>(char_ptr)) ;
+    std::print("4 byte -> {}\n",static_cast<void*>(int_ptr)) ;
+    std::print("8 byte -> {}\n",static_cast<void*>(double_ptr)) ;
+    std::print("32 byte -> {}\n",static_cast<void*>(ptr32)) ;
+    std::print("64 byte -> {}\n",static_cast<void*>(ptr64)) ;
+    std::print("128 byte -> {}\n",static_cast<void*>(ptr128)) ;
+
+    pool.reclaim() ;
+
+    char_ptr= pool.allocate<char>();
+    int_ptr = pool.allocate<int>() ;
+    double_ptr = pool.allocate<double>() ;
+    ptr32 = pool.allocate<huge_struct>() ;
+    ptr64 = pool.allocate<bigger_struct>() ;
+    ptr128 = pool.allocate<biggerer_struct>() ;
 
     return 0;
 }
