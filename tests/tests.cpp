@@ -1,6 +1,5 @@
 #include <cstddef>
 #include <gtest/gtest.h>
-#include <print>
 #include <string>
 
 #include "memory_pool.hpp"
