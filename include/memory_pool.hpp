@@ -3,6 +3,8 @@
 #include <cstddef>
 #include <memory>
 #include <new>
+#include <print>
+#include <utility>
 
 //#define INFO
 
@@ -112,7 +114,7 @@ class memory_pool {
             return nullptr ;
         }
 
-        // Could be named just create_instance
+        // Could be named just claim_and_construct
         // Also ignore any safety checks because
         // this is C++ duh
         template <typename Obj , typename... Args>
@@ -128,9 +130,39 @@ class memory_pool {
             return std::construct_at(location , std::forward<Args>(args)...) ;
         }
 
-        // TODO : Implement allocate_and_construct_array which will allocate
-        // and construct (if possible) a contiguous array of elements of the
-        // same type
+        template <typename Obj , typename... Args>
+        [[nodiscard]] auto allocate_and_construct_array(std::size_t count , Args&&... args) -> Obj* {
+
+            auto location = this->allocate_array<Obj>(count) ;
+            #ifdef INFO
+            std::println("First element aligned pointer : {}",static_cast<void*>(location)) ;
+            #endif
+            if(!static_cast<bool>(location)){
+                #ifdef INFO
+                std::println("Location is nullptr") ;
+                #endif
+                return nullptr ;
+            }
+            // Already constructed one , construct count-1 objects
+            Obj* first_constructed = std::construct_at(location , std::forward<Args>(args)...) ;
+            #ifdef INFO
+            std::println("Location of first constructed object : {}",static_cast<void*>(first_constructed));
+            #endif
+            // The location pointer if not nullptr
+            // will already be aligned to Obj
+            //
+            // I really don't like this loop
+            for(std::size_t i = {1uz} ; i < count ; ++i){
+                std::construct_at(location + i, std::forward<Args>(args)...);
+                #ifdef INFO
+                std::println("Next object constructed at : {} | Index : {}",static_cast<void*>(next) , i) ;
+                #endif
+            }
+            #ifdef INFO
+            std::println("Returned first_constructed : {}",static_cast<void*>(first_constructed)) ;
+            #endif
+            return first_constructed ;
+        }
 
         constexpr inline auto remaining_capacity() const noexcept -> std::size_t {
             return capacity_ ;
@@ -215,11 +247,11 @@ class memory_pool {
             }
 
             // If the pointer is outside , prompt (for now)
-            // then return a nullptr
+            // then return nullptr
             #ifdef INFO
             std::println("Count is invalid . Not enough capacity . Only one object or none \"allocated\"") ;
             #endif
-            return first_in_line ;
+            return nullptr ;
         }
 
         // Get bump allocator position , will be used

@@ -1,5 +1,7 @@
 #include <cstddef>
 #include <gtest/gtest.h>
+#include <print>
+#include <string>
 
 #include "memory_pool.hpp"
 
@@ -192,4 +194,38 @@ TEST(memory_pool , allocate_and_construct_pool_out_of_memory){
     // We should not SEGFAULT
     auto ptr = pool.allocate_and_construct<double>(0.0f) ;
     EXPECT_EQ(ptr , nullptr) ;
+}
+
+TEST(memory_pool , valid_allocate_and_construct_access){
+    memory_pool<2048> pool ;
+
+    struct alignas(64) UDT{
+        int a = 0 ;
+    };
+
+    auto ptr = pool.allocate_and_construct<UDT>(67) ;
+
+    EXPECT_EQ(ptr->a, 67) ;
+}
+
+TEST(memory_pool , allocate_and_construct_array_pool_out_of_memory){
+    // For this test a nullptr with
+    // no seg fault is expected
+    memory_pool<2048> pool ;
+
+    struct alignas(128) UDT{
+        int a = 0 ;
+        double b = 0.0f ;
+   };
+
+    std::size_t count = 10 ;
+
+    auto start = pool.allocate_and_construct_array<UDT>(count , 67 , 67.0f) ;
+
+    EXPECT_NE(start , nullptr) ;
+
+    for(std::size_t i = {0uz} ; i < count ; ++i){
+        EXPECT_EQ(start[i].a , 67) ;
+        EXPECT_DOUBLE_EQ(start[i].b , 67.0f) ;
+    }
 }
