@@ -3,10 +3,7 @@
 #include <cstddef>
 #include <memory>
 #include <new>
-#include <print>
 #include <utility>
-
-//#define INFO
 
 #include "memory_pool_concepts.hpp"
 
@@ -43,13 +40,7 @@ class memory_pool {
 
             explicit checkpoint_(void* current_bump_location , std::size_t current_capacity)
                                  : checkpoint_ptr {current_bump_location} , last_known_capacity {current_capacity}
-            {
-                #ifdef INFO
-                std::println("Checkpoint cached : Current Pointer -> {} | Current capacity -> {}",
-                             static_cast<void*>(checkpoint_ptr),
-                             last_known_capacity);
-                #endif
-            }
+            {}
         };
 
         checkpoint_ cached_ = checkpoint_(initial_start_ , size) ;
@@ -60,9 +51,6 @@ class memory_pool {
             initial_start_ = ::operator new(size) ;
             bump_ptr_ = initial_start_ ;
             if(initial_start_ != nullptr && bump_ptr_ != nullptr){
-                #ifdef INFO
-                std::println("Pool allocated");
-                #endif
             }
         }
 
@@ -75,9 +63,6 @@ class memory_pool {
         ~memory_pool() {
           // Delete the allocated memory
           ::operator delete(initial_start_);
-          #ifdef INFO
-          std::println("Pool destructed");
-          #endif
         }
 
         [[nodiscard]] inline constexpr auto acquire_internal_pool_start() const noexcept -> const void* {
@@ -87,16 +72,10 @@ class memory_pool {
         template <typename Obj>
         [[nodiscard]] auto allocate(std::size_t alignment = alignof(Obj)) -> Obj* {
             // Try to align our bump pointer
-            #ifdef INFO
-            std::println("Arguments : {} , {} , {} , {}",alignment , sizeof(Obj) , bump_ptr_ , capacity_);
-            #endif
             auto aligned_ptr = std::align(alignment , sizeof(Obj) , bump_ptr_ , capacity_) ;
 
             if(aligned_ptr != nullptr){
-                #ifdef INFO
-                std::println("aligned_ptr is not nullptr -> {}",aligned_ptr) ;
-                #endif
-                // Bytes used for alignment have already been subtracted from capacity_
+                    // Bytes used for alignment have already been subtracted from capacity_
                 // Now subtract the sizeof(obj)
                 capacity_ -= sizeof(Obj) ;
                 // The bump_ptr_ has been moved by the space needed for alignment not
@@ -108,9 +87,6 @@ class memory_pool {
 
             // If std::align fails for some reason (not enough space etc.)
             // return a nullptr , peak problem solving (~67ULLIQ)
-            #ifdef INFO
-            std::println("aligned_ptr was nullptr");
-            #endif
             return nullptr ;
         }
 
@@ -134,33 +110,18 @@ class memory_pool {
         [[nodiscard]] auto allocate_and_construct_array(std::size_t count , Args&&... args) -> Obj* {
 
             auto location = this->allocate_array<Obj>(count) ;
-            #ifdef INFO
-            std::println("First element aligned pointer : {}",static_cast<void*>(location)) ;
-            #endif
             if(!static_cast<bool>(location)){
-                #ifdef INFO
-                std::println("Location is nullptr") ;
-                #endif
-                return nullptr ;
+                    return nullptr ;
             }
             // Already constructed one , construct count-1 objects
             Obj* first_constructed = std::construct_at(location , std::forward<Args>(args)...) ;
-            #ifdef INFO
-            std::println("Location of first constructed object : {}",static_cast<void*>(first_constructed));
-            #endif
             // The location pointer if not nullptr
             // will already be aligned to Obj
             //
             // I really don't like this loop
             for(std::size_t i = {1uz} ; i < count ; ++i){
                 std::construct_at(location + i, std::forward<Args>(args)...);
-                #ifdef INFO
-                std::println("Next object constructed at : {} | Index : {}",static_cast<void*>(next) , i) ;
-                #endif
             }
-            #ifdef INFO
-            std::println("Returned first_constructed : {}",static_cast<void*>(first_constructed)) ;
-            #endif
             return first_constructed ;
         }
 
@@ -171,9 +132,6 @@ class memory_pool {
         constexpr auto reclaim() noexcept -> void {
             // Just return everything to default
             // Easy and simple RAHHHHH
-            #ifdef INFO
-            std::println("Pool reclaimed");
-            #endif
 
             bump_ptr_ = initial_start_ ;
             capacity_ = size ;
@@ -200,14 +158,8 @@ class memory_pool {
         // Can ONLY move you back one time !!!
         constexpr auto revert() -> void {
             // An one time undo (from the point of caching the checkpoint)
-            #ifdef INFO
-            std::println("Reverted to last cached checkpoint");
-            #endif
             bump_ptr_ = cached_.checkpoint_ptr ;
             capacity_ = cached_.last_known_capacity ;
-            #ifdef INFO
-            std::println("Current location of bump pointer -> {}\nCurrent capacity -> {}",bump_ptr_,capacity_);
-            #endif
 
             return ;
         }
@@ -248,9 +200,6 @@ class memory_pool {
 
             // If the pointer is outside , prompt (for now)
             // then return nullptr
-            #ifdef INFO
-            std::println("Count is invalid . Not enough capacity . Only one object or none \"allocated\"") ;
-            #endif
             return nullptr ;
         }
 
