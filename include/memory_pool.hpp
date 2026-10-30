@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <new>
 #include <utility>
@@ -171,7 +172,7 @@ class memory_pool {
         // Make it return a span RAHHHHHHH (too slow for my liking)
         // AND NO SAFETY CHECKING BECAUSE IT IS C++
         template <typename Obj>
-        auto allocate_array(std::size_t count) -> Obj* {
+        [[nodiscard]] auto allocate_array(std::size_t count) -> Obj* {
             // Allocate the first object
             // The pointer returned is pointing at the start
             // of the first object "allocated"
@@ -180,7 +181,7 @@ class memory_pool {
             //
             // We need to check if the last object is fully inside
             // the memory pool
-            Obj* ptr_to_last = first_in_line + (count + 1);
+            Obj* ptr_to_last = first_in_line + count;
             // If we stay inside return it
             if(this->owns(ptr_to_last)){
                 // We need to also handle capacity
@@ -207,6 +208,24 @@ class memory_pool {
         // for testing the checkpoint feature
         constexpr inline auto acquire_bump() const noexcept -> const void* {
             return bump_ptr_ ;
+        }
+
+        // Checks if an array allocation is possible
+        // More in problems.md
+        template <typename Obj>
+        [[nodiscard]] inline constexpr auto can_fit(std::size_t count = 1) const noexcept -> bool {
+            // First convert the pointer to a uintptr_t
+            auto ptr_to_align = reinterpret_cast<uintptr_t>(bump_ptr_) ;
+            // Align it in accordance to the alignment of the object
+            auto aligned_ptr = (ptr_to_align + (alignof(Obj) - 1)) & ~(alignof(Obj) - 1) ;
+            // Check if we are in the pool after alignment
+            if(this->owns(reinterpret_cast<const void*>(aligned_ptr)) && this->owns(reinterpret_cast<const void*>(aligned_ptr+count))){
+                // If for count we are still inside
+                // everything is nice
+                return true ;
+            }
+
+            return false ;
         }
 
 };

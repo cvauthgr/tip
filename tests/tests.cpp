@@ -228,3 +228,82 @@ TEST(memory_pool , allocate_and_construct_array_pool_out_of_memory){
         EXPECT_DOUBLE_EQ(start[i].b , 67.0f) ;
     }
 }
+
+TEST(memory_pool , bump_moves_after_failed_allocate_array){
+    memory_pool<256> pool ;
+
+    // Acquire the current bump location
+    auto initial_location = pool.acquire_bump() ;
+
+    // Fail to allocate the array
+    // Will return the nullptr but the
+    // bump will move either way
+    [[maybe_unused]] auto failed_allocate_array_ptr = pool.allocate_array<double>(1'000) ;
+
+    // Acquire the current bump ptr again
+    auto location_after_fail = pool.acquire_bump() ;
+
+    EXPECT_NE(initial_location , location_after_fail) ;
+}
+
+TEST(memory_pool , bump_moves_after_failed_allocate_and_construct_array){
+    memory_pool<256> pool ;
+
+    // Acquire the current bump location
+    auto initial_location = pool.acquire_bump() ;
+
+    // Fail to allocate the array
+    // Will return the nullptr but the
+    // bump will move either way
+    [[maybe_unused]] auto failed_allocate_array_ptr = pool.allocate_and_construct_array<double>(1'000 , 0.0f) ;
+
+    // Acquire the current bump ptr again
+    auto location_after_fail = pool.acquire_bump() ;
+
+    EXPECT_NE(initial_location , location_after_fail) ;
+}
+
+TEST(memory_pool , valid_can_fit){
+    memory_pool<2048> pool ;
+
+    // 2048 chars should fit perfectly
+    EXPECT_TRUE(pool.can_fit<char>(2048)) ;
+}
+
+TEST(memory_pool , invalid_can_fit_off_by_one){
+    memory_pool<2048> pool ;
+
+    // 2049 chars should not fit by one
+    EXPECT_FALSE(pool.can_fit<char>(2049)) ;
+}
+
+TEST(memory_pool , valid_can_fit_normal_request){
+    memory_pool<256> pool ;
+
+    EXPECT_TRUE(pool.can_fit<double>(10)) ;
+}
+
+TEST(memory_pool , valid_can_fit_after_allocation){
+    memory_pool<2048> pool ;
+
+    [[maybe_unused]] auto ptr = pool.allocate_and_construct_array<double>(200, 0.0f) ;
+
+    // Worst case scenario , the ptr had to move 7 bytes forward
+    // 2048 - 7 = 2041 - 8*200 = 2041 - 1600 = 441
+    // 441 / 8 = 55 doubles can fit (and some change)
+
+    EXPECT_TRUE(pool.can_fit<double>(55)) ;
+}
+
+TEST(memory_pool , invalid_can_fit_after_allocation){
+    memory_pool<2048> pool ;
+
+    [[maybe_unused]] auto ptr = pool.allocate_and_construct_array<double>(200, 0.0f) ;
+
+    // Worst case scenario , the ptr had to move 7 bytes forward
+    // 2048 - 7 = 2041 - 8*200 = 2041 - 1600 = 441
+    // 441 / 8 = 55 doubles can fit (and some change)
+    // 56 should fail
+
+    EXPECT_FALSE(pool.can_fit<double>(57)) ;
+}
