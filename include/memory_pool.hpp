@@ -50,8 +50,6 @@ class memory_pool {
             // Try to allocate (size) raw bytes
             initial_start_ = ::operator new(size) ;
             bump_ptr_ = initial_start_ ;
-            if(initial_start_ != nullptr && bump_ptr_ != nullptr){
-            }
         }
 
         // Delete the copy constructor and the
