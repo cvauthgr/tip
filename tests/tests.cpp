@@ -98,18 +98,18 @@ TEST(memory_pool , owns_valid_allocation_pointer){
     // First try an int which under
     // all circumstances will fit
     auto in_pool = pool.allocate<int>() ;
-    EXPECT_EQ(pool.owns(in_pool) , true) ;
+    EXPECT_TRUE(pool.owns(in_pool)) ;
 
     // Now for the final boss
     // This will surely NOT be in the
     // memory pool under no circumstances
     in_pool += 10'000 ;
-    EXPECT_EQ(pool.owns(in_pool), false) ;
+    EXPECT_FALSE(pool.owns(in_pool)) ;
 
     // Now it should be in the pool
     // once again
     in_pool -= 10'000 ;
-    EXPECT_EQ(pool.owns(in_pool), true) ;
+    EXPECT_TRUE(pool.owns(in_pool)) ;
 }
 
 TEST(memory_pool , owns_off_by_one){
@@ -122,7 +122,7 @@ TEST(memory_pool , owns_off_by_one){
     // -Me
     auto in_pool = pool.allocate<char>() ;
     // Sanity check
-    EXPECT_EQ(pool.owns(in_pool) , true);
+    EXPECT_TRUE(pool.owns(in_pool));
     // Off by one now . As a char has an
     // alignment of alignof(char) = 1
     // any memory adress is valid so the bump
@@ -131,12 +131,36 @@ TEST(memory_pool , owns_off_by_one){
     // assume that in_pool -= 1 is guaranteed
     // to be out of the pool
     in_pool -= 1 ;
-    EXPECT_EQ(pool.owns(in_pool) , false);
+    EXPECT_FALSE(pool.owns(in_pool));
 
     // WARNING : For any similar tests with
     // other types or UDT we would need to subtract
     // the alignment size too (not exactly but you know
     // what I am saying) -To future self
+}
+
+TEST(memory_pool , owns_small_pool_size_fail){
+    memory_pool<2> pool ;
+
+    // Valid as char is aligned to any memory adress
+    auto first_allocation = pool.allocate<char>() ;
+    // Valid for the same reason
+    auto second_allocation = pool.allocate<char>() ;
+
+    // Both should be valid
+    EXPECT_TRUE(pool.owns(first_allocation)) ;
+    EXPECT_TRUE(pool.owns(second_allocation)) ;
+
+    // Moving the ptr of the 2nd allocation
+    // forward should land us at the end of the pool
+    EXPECT_TRUE(pool.owns(second_allocation+1)) ;
+
+    // Moving it once more should land us outside
+    EXPECT_FALSE(pool.owns(second_allocation+2)) ;
+
+    // Same thing for moving backwards once at the
+    // ptr of the 1st allocation
+    EXPECT_FALSE(pool.owns(first_allocation-1)) ;
 }
 
 TEST(memory_pool , on_construction_bump_equal_to_start){
@@ -149,12 +173,12 @@ TEST(memory_pool , on_construction_bump_equal_to_start){
 
 TEST(memory_pool , pool_owns_bump){
     memory_pool<2048> pool ;
-    EXPECT_EQ(pool.owns(pool.acquire_bump()), true) ;
+    EXPECT_TRUE(pool.owns(pool.acquire_bump())) ;
 }
 
 TEST(memory_pool , pool_owns_start_ptr){
     memory_pool<2048> pool ;
-    EXPECT_EQ(pool.owns(pool.acquire_internal_pool_start()), true) ;
+    EXPECT_TRUE(pool.owns(pool.acquire_internal_pool_start())) ;
 }
 
 TEST(memory_pool , single_allocation_pool_out_of_space){
@@ -295,15 +319,38 @@ TEST(memory_pool , valid_can_fit_after_allocation){
     EXPECT_TRUE(pool.can_fit<double>(55)) ;
 }
 
-TEST(memory_pool , invalid_can_fit_after_allocation){
+TEST(memory_pool , invalid_can_fit_char_after_allocate_and_construct){
     memory_pool<2048> pool ;
 
-    [[maybe_unused]] auto ptr = pool.allocate_and_construct_array<double>(200, 0.0f) ;
+    [[maybe_unused]] auto ptr = pool.allocate_and_construct_array<char>(2048, ' ') ;
 
-    // Worst case scenario , the ptr had to move 7 bytes forward
-    // 2048 - 7 = 2041 - 8*200 = 2041 - 1600 = 441
-    // 441 / 8 = 55 doubles can fit (and some change)
-    // 56 should fail
+    EXPECT_FALSE(pool.can_fit<char>(1)) ;
+}
 
-    EXPECT_FALSE(pool.can_fit<double>(57)) ;
+TEST(memory_pool , invalid_can_fit_big_struct_after_allocate_and_construct){
+    struct alignas(512) box{
+        char a = ' ' ;
+    };
+
+    memory_pool<2048> pool ;
+
+    [[maybe_unused]] auto initial_construction = pool.allocate_and_construct_array<box>(2 , ' ') ;
+
+    // Worst case we still have 2048 - (2*sizeof(box)+(511)) = 513 bytes left
+    // So it would be impossible to fit 2 or more of those structs in the pool
+    EXPECT_FALSE(pool.can_fit<box>(2)) ;
+}
+
+TEST(memory_pool , impossible_can_fit){
+    memory_pool<1024> pool ;
+
+    struct alignas(2048) box{
+        char a = ' ' ;
+    };
+
+    // Potential for an awful test if the
+    // initial_start_ is aligned for alignof(box)
+    // so let's cut the pool size by half
+    // (2048 prior to 1024 now)
+    EXPECT_FALSE(pool.can_fit<box>()) ;
 }

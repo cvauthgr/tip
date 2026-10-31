@@ -23,7 +23,7 @@ struct alignas(256) super {
 };
 
 int main(){
-    memory_pool<2048> pool ;
+    /*memory_pool<2048> pool ;
 
     auto char_ptr = pool.allocate<char>();
     auto int_ptr = pool.allocate<int>() ;
@@ -95,7 +95,20 @@ int main(){
     std::println("Allocated 5 super structs (default constructed) at {}",static_cast<void*>(list_of_256ptrs)) ;
 
     std::println("Remaning size -> {}",pool.remaining_capacity()) ;
-    std::println("Bump position -> {}",pool.acquire_bump()) ;
+    std::println("Bump position -> {}",pool.acquire_bump()) ;*/
+
+    memory_pool<2> pool ;
+
+    auto ptr_1 = pool.allocate<char>() ;
+    auto ptr_2 = pool.allocate<char>() ;
+
+    std::println("ptr_1 -> {}\nptr_2 -> {}",static_cast<void*>(ptr_1),static_cast<void*>(ptr_2)) ;
+
+    std::println("Bump location == ptr_2 + 1 -> {} == {}",pool.acquire_bump(),static_cast<void*>(ptr_2)) ;
+
+    std::println("Which should match : Bump == initial_start_ + size : {} == {}",
+                pool.acquire_bump() ,
+                static_cast<const void*>(static_cast<const std::byte*>(pool.acquire_internal_pool_start())+2)) ;
 
     return 0;
 }

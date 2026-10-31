@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <new>
 #include <utility>
@@ -141,6 +140,8 @@ class memory_pool {
         }
 
         constexpr auto owns(const void* ptr) const noexcept -> bool {
+            // ptr == initial_start_ is the start of the pool
+            // ptr == initial_start_ + size is the last valid memory adress the pool owns
             if(ptr >= initial_start_ && ptr <= static_cast<std::byte*>(initial_start_)+size){
                 return true ;
             }
@@ -214,18 +215,19 @@ class memory_pool {
         // More in problems.md
         template <typename Obj>
         [[nodiscard]] inline constexpr auto can_fit(std::size_t count = 1) const noexcept -> bool {
-            // First convert the pointer to a uintptr_t
-            auto ptr_to_align = reinterpret_cast<uintptr_t>(bump_ptr_) ;
-            // Align it in accordance to the alignment of the object
-            auto aligned_ptr = (ptr_to_align + (alignof(Obj) - 1)) & ~(alignof(Obj) - 1) ;
-            // Check if we are in the pool after alignment
-            if(this->owns(reinterpret_cast<const void*>(aligned_ptr)) && this->owns(reinterpret_cast<const void*>(aligned_ptr+count))){
-                // If for count we are still inside
-                // everything is nice
-                return true ;
+            // Make an unavoidable copy of the bump ptr because the call to std::align
+            // per our circumstances is GUARANTEED to move it
+            auto bump_copy = bump_ptr_ ;
+            // Create a virtual buffer so std::align can play without messing with the pool's
+            // internal state
+            size_t virtual_buffer = static_cast<size_t>(-1) ;
+            auto aligned_ptr = std::align(alignof(Obj) , sizeof(Obj)*count , bump_copy , virtual_buffer) ;
+            if(this->owns(aligned_ptr) && this->owns(static_cast<Obj*>(aligned_ptr)+count)){
+                return true  ;
             }
 
             return false ;
         }
+
 
 };
