@@ -174,6 +174,10 @@ class memory_pool {
         // AND NO SAFETY CHECKING BECAUSE IT IS C++
         template <typename Obj>
         [[nodiscard]] auto allocate_array(std::size_t count) -> Obj* {
+            // Here I will implement the fix can_fit() was created for
+            if(!this->can_fit<Obj>(count)){
+                return nullptr ;
+            }
             // Allocate the first object
             // The pointer returned is pointing at the start
             // of the first object "allocated"
