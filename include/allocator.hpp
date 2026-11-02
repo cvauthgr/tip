@@ -1,15 +1,17 @@
 #pragma once
 
 #include "memory_pool.hpp"
+#include "memory_pool_concepts.hpp"
+
 #include <cstddef>
 
 namespace tip {
 
-template <std::size_t N>
+template <AllocatorPolicy Policy , std::size_t N>
 class allocator{
     private :
         // Manager of the memory_pool
-        tip::memory_pool<N> pool ;
+        tip::memory_pool<Policy,N> pool ;
 
         // The reason for the creation of
         // this class is the handling of

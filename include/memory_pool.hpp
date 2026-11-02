@@ -9,7 +9,7 @@
 
 namespace tip {
 
-template <std::size_t size>
+template <AllocatorPolicy Policy , std::size_t size>
 requires isNonZero<size> && isMultipleOfTwo<size>
 class memory_pool {
     private :
@@ -75,7 +75,7 @@ class memory_pool {
             auto aligned_ptr = std::align(alignment , sizeof(Obj) , bump_ptr_ , capacity_) ;
 
             if(aligned_ptr != nullptr){
-                    // Bytes used for alignment have already been subtracted from capacity_
+                // Bytes used for alignment have already been subtracted from capacity_
                 // Now subtract the sizeof(obj)
                 capacity_ -= sizeof(Obj) ;
                 // The bump_ptr_ has been moved by the space needed for alignment not
