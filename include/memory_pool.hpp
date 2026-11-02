@@ -50,8 +50,6 @@ class memory_pool {
             // Try to allocate (size) raw bytes
             initial_start_ = ::operator new(size) ;
             bump_ptr_ = initial_start_ ;
-            if(initial_start_ != nullptr && bump_ptr_ != nullptr){
-            }
         }
 
         // Delete the copy constructor and the
@@ -174,6 +172,10 @@ class memory_pool {
         // AND NO SAFETY CHECKING BECAUSE IT IS C++
         template <typename Obj>
         [[nodiscard]] auto allocate_array(std::size_t count) -> Obj* {
+            // Here I will implement the fix can_fit() was created for
+            if(!this->can_fit<Obj>(count)){
+                return nullptr ;
+            }
             // Allocate the first object
             // The pointer returned is pointing at the start
             // of the first object "allocated"

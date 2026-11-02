@@ -253,6 +253,7 @@ TEST(memory_pool , allocate_and_construct_array_pool_out_of_memory){
     }
 }
 
+// Used to reproduce the bug in problems.md
 TEST(memory_pool , bump_moves_after_failed_allocate_array){
     memory_pool<256> pool ;
 
@@ -267,9 +268,10 @@ TEST(memory_pool , bump_moves_after_failed_allocate_array){
     // Acquire the current bump ptr again
     auto location_after_fail = pool.acquire_bump() ;
 
-    EXPECT_NE(initial_location , location_after_fail) ;
+    EXPECT_EQ(initial_location , location_after_fail) ;
 }
 
+// Used to reproduce the bug
 TEST(memory_pool , bump_moves_after_failed_allocate_and_construct_array){
     memory_pool<256> pool ;
 
@@ -284,7 +286,7 @@ TEST(memory_pool , bump_moves_after_failed_allocate_and_construct_array){
     // Acquire the current bump ptr again
     auto location_after_fail = pool.acquire_bump() ;
 
-    EXPECT_NE(initial_location , location_after_fail) ;
+    EXPECT_EQ(initial_location , location_after_fail) ;
 }
 
 TEST(memory_pool , valid_can_fit){
