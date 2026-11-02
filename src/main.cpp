@@ -97,7 +97,7 @@ int main(){
     std::println("Remaning size -> {}",pool.remaining_capacity()) ;
     std::println("Bump position -> {}",pool.acquire_bump()) ;*/
 
-    memory_pool<2> pool ;
+    tip::memory_pool<2> pool ;
 
     auto ptr_1 = pool.allocate<char>() ;
     auto ptr_2 = pool.allocate<char>() ;

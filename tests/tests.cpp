@@ -5,12 +5,12 @@
 #include "memory_pool.hpp"
 
 TEST(memory_pool , bump_not_null_on_constructor){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
     EXPECT_NE(pool.acquire_bump() , nullptr);
 }
 
 TEST(memory_pool , allocate_fundamental_data_type){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     auto int_ptr = pool.allocate<int>() ;
 
@@ -18,7 +18,7 @@ TEST(memory_pool , allocate_fundamental_data_type){
 }
 
 TEST(memory_pool , checkpoint_after_one_allocation){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     // Allocate once first
     struct alignas(512) box {
@@ -42,7 +42,7 @@ TEST(memory_pool , checkpoint_after_one_allocation){
 }
 
 TEST(memory_pool , checkpoint_after_array_allocation){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     // Allocate an array first
     struct alignas(64) box {
@@ -68,7 +68,7 @@ TEST(memory_pool , checkpoint_after_array_allocation){
 TEST(memory_pool , space_reclamation){
     constexpr std::size_t capacity = 2048 ;
 
-    memory_pool<capacity> pool ;
+    tip::memory_pool<capacity> pool ;
 
     // Allocate lots of objects
     struct alignas(256) box{
@@ -93,7 +93,7 @@ TEST(memory_pool , space_reclamation){
 // of the pool "architecture"
 
 TEST(memory_pool , owns_valid_allocation_pointer){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     // First try an int which under
     // all circumstances will fit
@@ -113,7 +113,7 @@ TEST(memory_pool , owns_valid_allocation_pointer){
 }
 
 TEST(memory_pool , owns_off_by_one){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     // Off by one errors should be
     // handled through an API that can
@@ -140,7 +140,7 @@ TEST(memory_pool , owns_off_by_one){
 }
 
 TEST(memory_pool , owns_small_pool_size_fail){
-    memory_pool<2> pool ;
+    tip::memory_pool<2> pool ;
 
     // Valid as char is aligned to any memory adress
     auto first_allocation = pool.allocate<char>() ;
@@ -164,7 +164,7 @@ TEST(memory_pool , owns_small_pool_size_fail){
 }
 
 TEST(memory_pool , on_construction_bump_equal_to_start){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
     // Test if the bump_ptr_
     // returned is detected as
     // the pool must own it
@@ -172,17 +172,17 @@ TEST(memory_pool , on_construction_bump_equal_to_start){
 }
 
 TEST(memory_pool , pool_owns_bump){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
     EXPECT_TRUE(pool.owns(pool.acquire_bump())) ;
 }
 
 TEST(memory_pool , pool_owns_start_ptr){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
     EXPECT_TRUE(pool.owns(pool.acquire_internal_pool_start())) ;
 }
 
 TEST(memory_pool , single_allocation_pool_out_of_space){
-    memory_pool<2> pool ;
+    tip::memory_pool<2> pool ;
 
     struct alignas(256) UDT{
         char a = 'a' ;
@@ -195,7 +195,7 @@ TEST(memory_pool , single_allocation_pool_out_of_space){
 }
 
 TEST(memory_pool , multiple_allocations_pool_out_of_space){
-    memory_pool<2> pool ;
+    tip::memory_pool<2> pool ;
 
     struct alignas(256) UDT{
         char a = 'a' ;
@@ -209,7 +209,7 @@ TEST(memory_pool , multiple_allocations_pool_out_of_space){
 // Tests for allocate and construct
 
 TEST(memory_pool , allocate_and_construct_pool_out_of_memory){
-    memory_pool<2> pool ;
+    tip::memory_pool<2> pool ;
 
     // Try to allocate and construct
     // We won't have enough space so
@@ -220,7 +220,7 @@ TEST(memory_pool , allocate_and_construct_pool_out_of_memory){
 }
 
 TEST(memory_pool , valid_allocate_and_construct_access){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     struct alignas(64) UDT{
         int a = 0 ;
@@ -234,7 +234,7 @@ TEST(memory_pool , valid_allocate_and_construct_access){
 TEST(memory_pool , allocate_and_construct_array_pool_out_of_memory){
     // For this test a nullptr with
     // no seg fault is expected
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     struct alignas(128) UDT{
         int a = 0 ;
@@ -255,7 +255,7 @@ TEST(memory_pool , allocate_and_construct_array_pool_out_of_memory){
 
 // Used to reproduce the bug in problems.md
 TEST(memory_pool , bump_moves_after_failed_allocate_array){
-    memory_pool<256> pool ;
+    tip::memory_pool<256> pool ;
 
     // Acquire the current bump location
     auto initial_location = pool.acquire_bump() ;
@@ -273,7 +273,7 @@ TEST(memory_pool , bump_moves_after_failed_allocate_array){
 
 // Used to reproduce the bug
 TEST(memory_pool , bump_moves_after_failed_allocate_and_construct_array){
-    memory_pool<256> pool ;
+    tip::memory_pool<256> pool ;
 
     // Acquire the current bump location
     auto initial_location = pool.acquire_bump() ;
@@ -290,27 +290,27 @@ TEST(memory_pool , bump_moves_after_failed_allocate_and_construct_array){
 }
 
 TEST(memory_pool , valid_can_fit){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     // 2048 chars should fit perfectly
     EXPECT_TRUE(pool.can_fit<char>(2048)) ;
 }
 
 TEST(memory_pool , invalid_can_fit_off_by_one){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     // 2049 chars should not fit by one
     EXPECT_FALSE(pool.can_fit<char>(2049)) ;
 }
 
 TEST(memory_pool , valid_can_fit_normal_request){
-    memory_pool<256> pool ;
+    tip::memory_pool<256> pool ;
 
     EXPECT_TRUE(pool.can_fit<double>(10)) ;
 }
 
 TEST(memory_pool , valid_can_fit_after_allocation){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     [[maybe_unused]] auto ptr = pool.allocate_and_construct_array<double>(200, 0.0f) ;
 
@@ -322,7 +322,7 @@ TEST(memory_pool , valid_can_fit_after_allocation){
 }
 
 TEST(memory_pool , invalid_can_fit_char_after_allocate_and_construct){
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     [[maybe_unused]] auto ptr = pool.allocate_and_construct_array<char>(2048, ' ') ;
 
@@ -334,7 +334,7 @@ TEST(memory_pool , invalid_can_fit_big_struct_after_allocate_and_construct){
         char a = ' ' ;
     };
 
-    memory_pool<2048> pool ;
+    tip::memory_pool<2048> pool ;
 
     [[maybe_unused]] auto initial_construction = pool.allocate_and_construct_array<box>(2 , ' ') ;
 
@@ -344,7 +344,7 @@ TEST(memory_pool , invalid_can_fit_big_struct_after_allocate_and_construct){
 }
 
 TEST(memory_pool , impossible_can_fit){
-    memory_pool<1024> pool ;
+    tip::memory_pool<1024> pool ;
 
     struct alignas(2048) box{
         char a = ' ' ;

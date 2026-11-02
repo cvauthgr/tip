@@ -7,6 +7,8 @@
 
 #include "memory_pool_concepts.hpp"
 
+namespace tip {
+
 template <std::size_t size>
 requires isNonZero<size> && isMultipleOfTwo<size>
 class memory_pool {
@@ -91,6 +93,8 @@ class memory_pool {
         // Could be named just claim_and_construct
         // Also ignore any safety checks because
         // this is C++ duh
+        //
+        // Should be exposed by the allocator
         template <typename Obj , typename... Args>
         [[nodiscard]] auto allocate_and_construct(Args&&... args) -> Obj* {
             auto location = this->allocate<Obj>() ;
@@ -104,6 +108,7 @@ class memory_pool {
             return std::construct_at(location , std::forward<Args>(args)...) ;
         }
 
+        // Should be exposed by the allocator
         template <typename Obj , typename... Args>
         [[nodiscard]] auto allocate_and_construct_array(std::size_t count , Args&&... args) -> Obj* {
 
@@ -222,7 +227,7 @@ class memory_pool {
             auto bump_copy = bump_ptr_ ;
             // Create a virtual buffer so std::align can play without messing with the pool's
             // internal state
-            size_t virtual_buffer = static_cast<size_t>(-1) ;
+            std::size_t virtual_buffer = static_cast<std::size_t>(-1) ;
             auto aligned_ptr = std::align(alignof(Obj) , sizeof(Obj)*count , bump_copy , virtual_buffer) ;
             if(this->owns(aligned_ptr) && this->owns(static_cast<Obj*>(aligned_ptr)+count)){
                 return true  ;
@@ -233,3 +238,5 @@ class memory_pool {
 
 
 };
+
+}// End of the tip namespace
