@@ -6,10 +6,11 @@
 #include <utility>
 
 #include "memory_pool_concepts.hpp"
+#include "policies.hpp"
 
 namespace tip {
 
-template <AllocatorPolicy Policy , std::size_t size>
+template <AllocatorPolicy Policy = tip::default_policy, std::size_t size = 2048>
 requires isNonZero<size> && isMultipleOfTwo<size>
 class memory_pool {
     private :
@@ -57,8 +58,8 @@ class memory_pool {
         // Delete the copy constructor and the
         // copy-assignment constructor , the move and move
         // assignment constructors get nuked by the compiler
-        memory_pool(const memory_pool &) = delete;
-        memory_pool &operator=(const memory_pool &) = delete ;
+        memory_pool(const memory_pool& pool) = delete;
+        memory_pool& operator=(const memory_pool& pool) = delete ;
 
         ~memory_pool() {
           // Delete the allocated memory
@@ -74,7 +75,8 @@ class memory_pool {
             // Try to align our bump pointer
             auto aligned_ptr = std::align(alignment , sizeof(Obj) , bump_ptr_ , capacity_) ;
 
-            if(aligned_ptr != nullptr){
+            if constexpr(Policy::nullptr_checks){
+                if(aligned_ptr != nullptr){
                 // Bytes used for alignment have already been subtracted from capacity_
                 // Now subtract the sizeof(obj)
                 capacity_ -= sizeof(Obj) ;
@@ -85,9 +87,15 @@ class memory_pool {
                 return static_cast<Obj*>(aligned_ptr) ;
             }
 
-            // If std::align fails for some reason (not enough space etc.)
-            // return a nullptr , peak problem solving (~67ULLIQ)
-            return nullptr ;
+                // If std::align fails for some reason (not enough space etc.)
+                // return a nullptr , peak problem solving (~67ULLIQ)
+                return nullptr ;
+            }
+
+            capacity_ -= sizeof(Obj) ;
+            bump_ptr_ = static_cast<Obj*>(bump_ptr_) + 1 ;
+
+            return static_cast<Obj*>(aligned_ptr) ;
         }
 
         // Could be named just claim_and_construct
@@ -98,11 +106,14 @@ class memory_pool {
         template <typename Obj , typename... Args>
         [[nodiscard]] auto allocate_and_construct(Args&&... args) -> Obj* {
             auto location = this->allocate<Obj>() ;
-            // A nullptr check will prevent the
-            // SEGFAULT when nullptr gets passed
-            // in std::construct_at
-            if(!static_cast<bool>(location)){
-                return nullptr ;
+
+            if constexpr (Policy::nullptr_checks) {
+                // A nullptr check will prevent the
+                // SEGFAULT when nullptr gets passed
+                // in std::construct_at
+                if(!static_cast<bool>(location)){
+                    return nullptr ;
+                }
             }
 
             return std::construct_at(location , std::forward<Args>(args)...) ;
@@ -111,10 +122,12 @@ class memory_pool {
         // Should be exposed by the allocator
         template <typename Obj , typename... Args>
         [[nodiscard]] auto allocate_and_construct_array(std::size_t count , Args&&... args) -> Obj* {
-
             auto location = this->allocate_array<Obj>(count) ;
-            if(!static_cast<bool>(location)){
+
+            if constexpr(Policy::nullptr_checks){
+                if(!static_cast<bool>(location)){
                     return nullptr ;
+                }
             }
             // Already constructed one , construct count-1 objects
             Obj* first_constructed = std::construct_at(location , std::forward<Args>(args)...) ;
@@ -177,9 +190,12 @@ class memory_pool {
         // AND NO SAFETY CHECKING BECAUSE IT IS C++
         template <typename Obj>
         [[nodiscard]] auto allocate_array(std::size_t count) -> Obj* {
-            // Here I will implement the fix can_fit() was created for
-            if(!this->can_fit<Obj>(count)){
-                return nullptr ;
+
+            if constexpr (Policy::can_fit_checks) {
+                // Here I will implement the fix can_fit() was created for
+                if(!this->can_fit<Obj>(count)){
+                    return nullptr ;
+                }
             }
             // Allocate the first object
             // The pointer returned is pointing at the start
@@ -191,25 +207,30 @@ class memory_pool {
             // the memory pool
             Obj* ptr_to_last = first_in_line + count;
             // If we stay inside return it
-            if(this->owns(ptr_to_last)){
-                // We need to also handle capacity
-                // decrement if the "allocation" is
-                // valid
-                //
-                // As the bump already got aligned and
-                // the capacity of 1 object got decremented
-                // we only need to subtract the sizeof(obj)*(count-1)
-                capacity_ -= sizeof(Obj)*(count-1) ;
+            if constexpr (Policy::ownership_checks) {
+                if(this->owns(ptr_to_last)){
+                    // We need to also handle capacity
+                    // decrement if the "allocation" is
+                    // valid
+                    //
+                    // As the bump already got aligned and
+                    // the capacity of 1 object got decremented
+                    // we only need to subtract the sizeof(obj)*(count-1)
+                    capacity_ -= sizeof(Obj)*(count-1) ;
 
-                // Lastly we also need to move the bump pointer
-                // which is already aligned by std::align
-                bump_ptr_ = static_cast<Obj*>(bump_ptr_)+(count-1) ;
-                return first_in_line ;
+                    // Lastly we also need to move the bump pointer
+                    // which is already aligned by std::align
+                    bump_ptr_ = static_cast<Obj*>(bump_ptr_)+(count-1) ;
+                    return first_in_line ;
+                }
+
+                // If the pointer is outside , prompt (for now)
+                // then return nullptr
+                return nullptr ;
             }
-
-            // If the pointer is outside , prompt (for now)
-            // then return nullptr
-            return nullptr ;
+            capacity_ -= sizeof(Obj)*(count-1) ;
+            bump_ptr_ = static_cast<Obj*>(bump_ptr_)+(count-1) ;
+            return first_in_line ;
         }
 
         // Get bump allocator position , will be used

@@ -17,13 +17,13 @@ concept isNonZero = requires {
 
 template <typename Policy>
 concept AllocatorPolicy = requires {
-    {Policy::bounds_checks}          -> std::convertible_to<bool> ;
     {Policy::ownership_checks}       -> std::convertible_to<bool> ;
     {Policy::can_fit_checks}         -> std::convertible_to<bool> ;
     {Policy::nullptr_checks}         -> std::convertible_to<bool> ;
     {Policy::size_check_validations} -> std::convertible_to<bool> ;
     {Policy::fallback_resource}      -> std::convertible_to<bool> ;
     {Policy::upstream_resource}      -> std::convertible_to<bool> ;
+    {Policy::pool_chaining}          -> std::convertible_to<bool> ;
 };
 
 }

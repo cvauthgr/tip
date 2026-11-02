@@ -1,4 +1,5 @@
 #include "memory_pool.hpp"
+#include "policies.hpp"
 
 #include <cstddef>
 #include <print>
@@ -97,7 +98,7 @@ int main(){
     std::println("Remaning size -> {}",pool.remaining_capacity()) ;
     std::println("Bump position -> {}",pool.acquire_bump()) ;*/
 
-    tip::memory_pool<2> pool ;
+    tip::memory_pool<tip::default_policy , 2> pool ;
 
     auto ptr_1 = pool.allocate<char>() ;
     auto ptr_2 = pool.allocate<char>() ;

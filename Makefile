@@ -10,4 +10,7 @@ tests :
 benchmarks :
 	./build/run_benchmarks
 
-.PHONY : generator build tests benchmarks
+main :
+	./build/main
+
+.PHONY : generator build tests benchmarks main

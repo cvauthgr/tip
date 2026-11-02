@@ -1,6 +1,7 @@
 #include <benchmark/benchmark.h>
 
 #include "memory_pool.hpp"
+#include "policies.hpp"
 
 static void ptmalloc_bench(benchmark::State& state){
     // Allocate and construct a struct at place
@@ -24,7 +25,7 @@ BENCHMARK(ptmalloc_bench);
 
 static void memory_pool_allocate_and_construct_bench(benchmark::State& state){
     // Here we will test the allocate_and_construct API
-    memory_pool<4096> pool ;
+    tip::memory_pool<tip::default_policy , 4096> pool ;
 
     benchmark::DoNotOptimize(pool.acquire_internal_pool_start()) ;
 
