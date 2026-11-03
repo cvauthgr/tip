@@ -1,16 +1,16 @@
 generator :
-	cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
 build :
 	cmake --build build -j$$(nproc)
 
 tests :
-	ctest --test-dir build --output-on-failure -j$$(nproc) --repeat until-fail:100
+	ctest --test-dir build --output-on-failure
 
 benchmarks :
 	./build/run_benchmarks
 
 main :
-	./build/main
+	./build/tip
 
 .PHONY : generator build tests benchmarks main

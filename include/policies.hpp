@@ -12,7 +12,7 @@ struct default_policy{
 
     // Allocator options
     static constexpr bool size_check_validations = true  ;
-    static constexpr bool fallback_resource      = false ;
+    static constexpr bool use_reserve            = true  ;
     static constexpr bool upstream_resource      = false ;
     static constexpr bool pool_chaining          = false ;
 
@@ -26,7 +26,7 @@ struct hardened_policy : default_policy {
 
     // Allocator options
     static constexpr bool size_check_validations = true ;
-    static constexpr bool fallback_resource      = true ;
+    static constexpr bool use_reserve            = true ;
     static constexpr bool upstream_resource      = true ;
 };
 

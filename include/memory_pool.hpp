@@ -11,7 +11,7 @@
 namespace tip {
 
 template <AllocatorPolicy Policy = tip::default_policy, std::size_t size = 2048>
-requires isNonZero<size> && isMultipleOfTwo<size>
+requires isMultipleOfTwo<size>
 class memory_pool {
     private :
         void* initial_start_ = nullptr ;
@@ -51,8 +51,11 @@ class memory_pool {
     public :
         explicit memory_pool() {
             // Try to allocate (size) raw bytes
-            initial_start_ = ::operator new(size) ;
-            bump_ptr_ = initial_start_ ;
+            // only if the size in non-zero
+            if constexpr (size != 0) {
+                initial_start_ = ::operator new(size) ;
+                bump_ptr_ = initial_start_ ;
+            }
         }
 
         // Delete the copy constructor and the
@@ -61,9 +64,18 @@ class memory_pool {
         memory_pool(const memory_pool& pool) = delete;
         memory_pool& operator=(const memory_pool& pool) = delete ;
 
+        // A move constructor would be useful for the fallback_resource
+        memory_pool& operator=(void* ptr_to_fallback){
+            bump_ptr_ = ptr_to_fallback ;
+            return *this ;
+        }
+
         ~memory_pool() {
           // Delete the allocated memory
-          ::operator delete(initial_start_);
+          // only if we allocated
+          if constexpr (size != 0) {
+              ::operator delete(initial_start_);
+          }
         }
 
         [[nodiscard]] inline constexpr auto acquire_internal_pool_start() const noexcept -> const void* {
