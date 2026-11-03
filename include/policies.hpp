@@ -12,13 +12,13 @@ struct default_policy{
 
     // Allocator options
     static constexpr bool size_check_validations = true  ;
-    static constexpr bool use_reserve            = true  ;
     static constexpr bool upstream_resource      = false ;
     static constexpr bool pool_chaining          = false ;
-
+    static constexpr bool fallback_to_new        = false ;
+    static constexpr bool easy_crash             = false ;
 };
 
-struct hardened_policy : default_policy {
+struct resilient_policy : default_policy {
     // Pool options
     static constexpr bool ownership_checks  = true ;
     static constexpr bool can_fit_checks    = true ;
@@ -26,8 +26,9 @@ struct hardened_policy : default_policy {
 
     // Allocator options
     static constexpr bool size_check_validations = true ;
-    static constexpr bool use_reserve            = true ;
     static constexpr bool upstream_resource      = true ;
+    static constexpr bool fallback_to_new        = true ;
+    static constexpr bool easy_crash             = true ;
 };
 
 struct unsafe : default_policy {
@@ -38,7 +39,12 @@ struct unsafe : default_policy {
 
     // Allocator options
     static constexpr bool size_check_validations = false ;
-    static constexpr bool pool_chaining          = true  ;
+    static constexpr bool pool_chaining          = false ;
+    static constexpr bool fallback_to_new        = false ;
+};
+
+struct permissive_policy : default_policy {
+    static constexpr bool fallback_to_new = true ;
 };
 
 }// End of the tip namespace

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "fallback_resource.hpp"
+#include "pillow_resource.hpp"
 #include "memory_pool.hpp"
 #include "memory_pool_concepts.hpp"
 
@@ -16,7 +16,8 @@ class allocator{
         // Manager of the memory_pool
         tip::memory_pool<Policy,N> pool_ ;
         // The fallback resource
-        tip::fallback_resource<Policy, N> fallback_resource_ ;
+        // I am not using it for now . Just a silly idea
+        tip::pillow_resource<Policy, N> harness_ ;
 
         // The reason for the creation of
         // this class is the handling of
@@ -25,7 +26,7 @@ class allocator{
         // resources and manage more than one
         // pools
 
-        bool in_reserve_ = false ;
+        bool switched_to_fallback_ = false ;
 
     public:
 
@@ -38,8 +39,11 @@ class allocator{
 
         template <typename Obj , typename... Args>
         [[nodiscard]] auto allocate_and_construct(Args&&... args) -> Obj* {
-            if constexpr (Policy::use_reserve && Policy::size_check_validations) {
-                // Check for the worst case scenatio if the object fits
+            if constexpr (Policy::fallback_to_new && Policy::size_check_validations) {
+                if(switched_to_fallback_){
+                    return new Obj(std::forward<Args>(args)...) ;
+                }
+                // Check for the worst case scenario if the object fits
                 // If it doesn't switch the ptr to the fallback resource
                 // The allocate call will return nullptr if we don't have
                 // a reserve to use
@@ -49,8 +53,8 @@ class allocator{
                 worst_scenario_offset += ((alignof(Obj)-1)+sizeof(Obj)) ;
 
                 if(!pool_.owns(reinterpret_cast<const void*>(worst_scenario_offset))){
-                    pool_ = fallback_resource_.acquire_fallback_resource_start() ;
-                    in_reserve_ = true ;
+                    switched_to_fallback_ = true ;
+                    return new Obj(std::forward<Args>(args)...) ;
                 }
             }
 
@@ -70,15 +74,18 @@ class allocator{
 
         template <typename Obj , typename... Args>
         [[nodiscard]] auto allocate_and_construct_array(std::size_t count , Args&&... args) -> Obj* {
-            if constexpr (Policy::use_reserve && Policy::size_check_validations) {
+            if constexpr (Policy::fallback_to_new && Policy::size_check_validations) {
+                if(switched_to_fallback_){
+                    return new Obj[count]{{args...}} ;
+                }
                 auto bump_location = pool_.acquire_bump() ;
 
                 std::size_t worst_scenario_offset = reinterpret_cast<uintptr_t>(bump_location) ;
                 worst_scenario_offset += ((alignof(Obj)-1)+(count*sizeof(Obj))) ;
 
                 if(!pool_.owns(reinterpret_cast<const void*>(worst_scenario_offset))){
-                    pool_ = fallback_resource_.acquire_fallback_resource_start() ;
-                    in_reserve_ = true ;
+                    switched_to_fallback_ = true ;
+                    return new Obj[count]{{args...}} ;
                 }
             }
             auto location = pool_.template allocate_array<Obj>(count) ;
@@ -102,7 +109,7 @@ class allocator{
         }
 
         constexpr inline auto using_fallback_resource() const noexcept -> bool {
-            return in_reserve_ ;
+            return switched_to_fallback_ ;
         }
 
         constexpr inline auto remaining_capacity() const noexcept -> std::size_t {

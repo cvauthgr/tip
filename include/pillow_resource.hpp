@@ -9,19 +9,19 @@ namespace tip {
 
 template <tip::AllocatorPolicy Policy , std::size_t Size>
 requires tip::isMultipleOfTwo<Size> && tip::isNonZero<Size>
-class fallback_resource {
+class pillow_resource {
     private :
         void* beginning_of_resource_ = nullptr ;
 
     public :
-       explicit fallback_resource(){
-           if constexpr (Policy::use_reserve){
+       explicit pillow_resource(){
+           if constexpr (Policy::pool_chaining){
                beginning_of_resource_ = ::operator new(Size) ;
            }
        }
 
-       ~fallback_resource(){
-           if constexpr (Policy::use_reserve){
+       ~pillow_resource(){
+           if constexpr (Policy::pool_chaining){
                ::operator delete(beginning_of_resource_) ;
            }
        }
