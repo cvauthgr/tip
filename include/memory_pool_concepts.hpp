@@ -5,15 +5,15 @@
 
 namespace tip {
 
-template <std::size_t size>
+template <std::size_t Size>
 concept isMultipleOfTwo = requires {
-    size % 2 == 0 ;
+    Size % 2 == 0 ;
 };
 
 // Useless for now
-template <std::size_t size>
+template <std::size_t Size>
 concept isNonZero = requires {
-    size != 0 ;
+    Size != 0 ;
 };
 
 template <typename Policy>
