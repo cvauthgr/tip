@@ -1,6 +1,5 @@
 #pragma once
 
-#include "pillow_resource.hpp"
 #include "memory_pool.hpp"
 #include "memory_pool_concepts.hpp"
 
@@ -15,10 +14,6 @@ class allocator{
     private :
         // Manager of the memory_pool
         tip::memory_pool<Policy,N> pool_ ;
-        // The fallback resource
-        // I am not using it for now . Just a silly idea
-        tip::pillow_resource<Policy, N> harness_ ;
-
         // The reason for the creation of
         // this class is the handling of
         // different memory pools . We can
