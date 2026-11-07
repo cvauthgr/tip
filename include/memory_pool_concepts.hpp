@@ -21,6 +21,7 @@ concept AllocatorPolicy = requires {
     {Policy::ownership_checks}       -> std::convertible_to<bool> ;
     {Policy::can_fit_checks}         -> std::convertible_to<bool> ;
     {Policy::nullptr_checks}         -> std::convertible_to<bool> ;
+    {Policy::unsafe_align_ptrs}      -> std::convertible_to<bool> ;
     {Policy::size_check_validations} -> std::convertible_to<bool> ;
     {Policy::fallback_to_new}        -> std::convertible_to<bool> ;
     {Policy::upstream_resource}      -> std::convertible_to<bool> ;

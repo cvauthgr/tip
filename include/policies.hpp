@@ -9,6 +9,7 @@ struct default_policy{
     static constexpr bool ownership_checks  = true ;
     static constexpr bool can_fit_checks    = true ;
     static constexpr bool nullptr_checks    = true ;
+    static constexpr bool unsafe_align_ptrs = false ;
 
     // Allocator options
     static constexpr bool size_check_validations = true  ;
@@ -36,6 +37,7 @@ struct unsafe : default_policy {
     static constexpr bool ownership_checks  = false ;
     static constexpr bool can_fit_checks    = false ;
     static constexpr bool nullptr_checks    = false ;
+    static constexpr bool unsafe_align_ptrs = true  ;
 
     // Allocator options
     static constexpr bool size_check_validations = false ;
