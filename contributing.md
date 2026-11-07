@@ -1,5 +1,7 @@
 # Contributing to tip
 
+Before everything please read this : https://en.wikipedia.org/wiki/Region-based_memory_management
+
 Every contribution at this stage of deployment is very much welcome 
 
 **Areas in need of expansion** :
