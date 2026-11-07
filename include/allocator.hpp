@@ -2,18 +2,19 @@
 
 #include "memory_pool.hpp"
 #include "memory_pool_concepts.hpp"
+#include "pool_manager.hpp"
 
 #include <cstddef>
 #include <cstdint>
 
 namespace tip {
 
-template <AllocatorPolicy Policy , std::size_t N>
-requires isNonZero<N>
+template <AllocatorPolicy Policy , std::size_t Size , std::size_t MaxPoolsChained = 0>
+requires isNonZero<Size>
 class allocator{
     private :
         // Manager of the memory_pool
-        tip::memory_pool<Policy,N> pool_ ;
+        tip::memory_pool<Policy,Size> pool_ ;
         // The reason for the creation of
         // this class is the handling of
         // different memory pools . We can
@@ -23,9 +24,23 @@ class allocator{
 
         bool switched_to_fallback_ = false ;
 
+        // We will need a way to save the last function
+        // call in case we need to chain the pool .
+        // Chain the pool and call the expand() API
+        // and then return to the last function called
+        tip::pool_manager<Policy,Size,MaxPoolsChained> manager_ ;
+
     public:
 
-        allocator() = default ;
+        allocator(){
+            // If fallback to new and pool chaining are
+            // enabled explode , quite literally
+            if constexpr (Policy::fallback_to_new && Policy::pool_chaining) {
+                __builtin_trap() ;
+            }
+            manager_(pool_) ;
+        }
+
         ~allocator() = default ;
 
         // Non-copyable and non-movable

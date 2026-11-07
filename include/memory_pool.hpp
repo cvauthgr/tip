@@ -10,13 +10,13 @@
 
 namespace tip {
 
-template <AllocatorPolicy Policy = tip::default_policy, std::size_t size = 2048>
-requires isMultipleOfTwo<size>
+template <AllocatorPolicy Policy = tip::default_policy, std::size_t Size = 2048>
+requires isMultipleOfTwo<Size>
 class memory_pool {
     private :
         void* initial_start_ = nullptr ;
         void* bump_ptr_ = nullptr ;
-        std::size_t capacity_ = size ;
+        std::size_t capacity_ = Size ;
 
         // Implementation for checkpoints
         // Might not like it and remove it later
@@ -46,14 +46,14 @@ class memory_pool {
             {}
         };
 
-        checkpoint_ cached_ = checkpoint_(initial_start_ , size) ;
+        checkpoint_ cached_ = checkpoint_(initial_start_ , Size) ;
 
     public :
         explicit memory_pool() {
             // Try to allocate (size) raw bytes
             // only if the size in non-zero
-            if constexpr (size != 0) {
-                initial_start_ = ::operator new(size) ;
+            if constexpr (Size != 0) {
+                initial_start_ = ::operator new(Size) ;
                 bump_ptr_ = initial_start_ ;
             }
         }
@@ -73,7 +73,7 @@ class memory_pool {
         ~memory_pool() {
           // Delete the allocated memory
           // only if we allocated
-          if constexpr (size != 0) {
+          if constexpr (Size != 0) {
               ::operator delete(initial_start_);
           }
         }
@@ -162,7 +162,7 @@ class memory_pool {
             // Easy and simple RAHHHHH
 
             bump_ptr_ = initial_start_ ;
-            capacity_ = size ;
+            capacity_ = Size ;
 
             return ;
         }
@@ -170,7 +170,7 @@ class memory_pool {
         constexpr auto owns(const void* ptr) const noexcept -> bool {
             // ptr == initial_start_ is the start of the pool
             // ptr == initial_start_ + size is the last valid memory adress the pool owns
-            if(ptr >= initial_start_ && ptr <= static_cast<std::byte*>(initial_start_)+size){
+            if(ptr >= initial_start_ && ptr <= static_cast<std::byte*>(initial_start_)+Size){
                 return true ;
             }
 
@@ -195,7 +195,7 @@ class memory_pool {
         }
 
         constexpr inline auto used_memory() const noexcept -> std::size_t {
-            return size - capacity_ ;
+            return Size - capacity_ ;
         }
 
         // Make it return a span RAHHHHHHH (too slow for my liking)
@@ -269,7 +269,16 @@ class memory_pool {
             return false ;
         }
 
+        // Helpers for the pool manager
 
+        auto inline constexpr reseat_bump_pointer(void* new_bump) noexcept -> void {
+            bump_ptr_ = new_bump ;
+        }
+
+        auto inline constexpr invalidate_cached_checkpoint(void* new_start) noexcept -> void {
+            cached_.checkpoint_ptr = new_start ;
+            cached_.last_known_capacity = Size ;
+        }
 };
 
 }// End of the tip namespace
