@@ -9,7 +9,9 @@
 
 namespace tip {
 
-template <AllocatorPolicy Policy , std::size_t Size , std::size_t MaxPoolsChained = 0>
+template <AllocatorPolicy Policy,
+          std::size_t Size,
+          std::size_t MaxPoolsChained = 1>
 requires isNonZero<Size>
 class allocator{
     private :

@@ -18,16 +18,11 @@
 #include "memory_pool.hpp"
 #include "memory_pool_concepts.hpp"
 
-#define SINGLE_POOL 1
-#define NO_POOLS 0
-
 namespace tip {
 
 template <AllocatorPolicy Policy,
           std::size_t Size,
-          std::size_t MaxPoolsChained>
-          requires isNonZero<MaxPoolsChained> &&
-                   (MaxPoolsChained > SINGLE_POOL || MaxPoolsChained == NO_POOLS)
+          std::size_t MaxPoolsChained = 1>
 class pool_manager {
 private:
   std::array<memory_pool<Policy, Size> *, MaxPoolsChained> pools_ = {};
@@ -39,15 +34,20 @@ private:
   bool stopped_chaining_ = false;
 
 public:
+  pool_manager() = default ;
+
+  // Non-copyable and non-movable
+
+
   // On construction set the first element
   // of the array to the start of the first pool
-  explicit pool_manager(memory_pool<Policy, Size> pool) {
+  auto inline constexpr operator()(tip::memory_pool<Policy,Size>& pool) -> void {
     if constexpr (MaxPoolsChained != 0 || !Policy::pool_chaining) {
-      // This is bad . Mark my words
-      pools_[pool_index_] = &pool;
-      pool_resource_ = &pool;
+          // This is bad . Mark my words
+          pools_[pool_index_] = &pool;
+          pool_resource_ = &pool;
 
-      pool_index_++;
+          pool_index_++;
     }
   }
 
@@ -62,9 +62,8 @@ public:
   // created statically
   ~pool_manager() {
     if constexpr (MaxPoolsChained != 0 || !Policy::pool_chaining) {
-      for (std::size_t delete_index = {1uz}; delete_index < pools_.size();
-           ++delete_index) {
-        delete static_cast<const std::byte *>(pools_[delete_index]);
+      for (std::size_t delete_index = {1uz}; delete_index < pools_.size(); ++delete_index) {
+        delete pools_[delete_index] ;
       }
     }
   }
@@ -90,10 +89,8 @@ public:
 
       // Make the needed resets
       // to the main pool we are handling
-      pool_resource_->reseat_bump_pointer(
-          new_pool->acquire_internal_pool_start());
-      pool_resource_->invalidate_cached_checkpoint(
-          new_pool->acquire_internal_pool_start());
+      pool_resource_->reseat_bump_pointer(new_pool->acquire_internal_pool_start());
+      pool_resource_->invalidate_cached_checkpoint(new_pool->acquire_internal_pool_start());
 
       // Increment the pool index
       pool_index_++;

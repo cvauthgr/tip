@@ -1,5 +1,8 @@
-generator :
+generator_release :
 	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+
+generator_debug :
+	cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug
 
 build :
 	cmake --build build -j$$(nproc)

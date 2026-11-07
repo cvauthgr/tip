@@ -10,7 +10,8 @@
 
 namespace tip {
 
-template <AllocatorPolicy Policy = tip::default_policy, std::size_t Size = 2048>
+template <AllocatorPolicy Policy = tip::default_policy,
+          std::size_t Size = 2048>
 requires isMultipleOfTwo<Size>
 class memory_pool {
     private :
