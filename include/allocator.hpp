@@ -70,6 +70,9 @@ class allocator{
                 }
             }
 
+            // Just before allocating we check if there is enough
+            // space for the object . If there is not add another pool
+
             auto location = pool_.template allocate<Obj>() ;
 
             if constexpr (Policy::nullptr_checks) {
@@ -100,7 +103,12 @@ class allocator{
                     return new Obj[count]{{args...}} ;
                 }
             }
+
+            // Just before allocating we check if there is enough
+            // space for the object . If there is not add another pool
+
             auto location = pool_.template allocate_array<Obj>(count) ;
+
             if constexpr (Policy::nullptr_checks){
                 if(!static_cast<bool>(location)){
                         return nullptr ;
@@ -126,6 +134,11 @@ class allocator{
 
         constexpr inline auto remaining_capacity() const noexcept -> std::size_t {
             return pool_.remaining_capacity() ;
+        }
+
+        constexpr inline auto reclaim_memory() noexcept -> void {
+            pool_.reclaim() ;
+            return ;
         }
 };
 
