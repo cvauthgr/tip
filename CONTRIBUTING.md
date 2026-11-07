@@ -2,7 +2,7 @@
 
 Before everything please read this : https://en.wikipedia.org/wiki/Region-based_memory_management
 
-Every contribution at this stage of deployment is very much welcome 
+Every contribution at this stage of development is welcome! 
 
 **Areas in need of expansion** :
 
