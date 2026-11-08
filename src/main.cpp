@@ -100,8 +100,8 @@ int main(){
 
     tip::memory_pool<tip::default_policy , 2> pool ;
 
-    auto ptr_1 = pool.allocate<char>() ;
-    auto ptr_2 = pool.allocate<char>() ;
+    auto ptr_1 = pool.claim<char>() ;
+    auto ptr_2 = pool.claim<char>() ;
 
     std::println("ptr_1 -> {}\nptr_2 -> {}",static_cast<void*>(ptr_1),static_cast<void*>(ptr_2)) ;
 

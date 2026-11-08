@@ -6,6 +6,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
+#include <type_traits>
 
 namespace tip {
 
@@ -32,6 +34,9 @@ class allocator{
         // and then return to the last function called
         tip::pool_manager<Policy,Size,MaxPoolsChained> manager_ ;
 
+        // Avoid the function calls to pool and receive it once here
+        void* handled_pools_start_ = nullptr ;
+
     public:
 
         allocator(){
@@ -41,6 +46,9 @@ class allocator{
                 __builtin_trap() ;
             }
             manager_(pool_) ;
+
+            // Acquire the internal pool start
+            handled_pools_start_ = pool_.acquire_internal_pool_start() ;
         }
 
         ~allocator() = default ;
@@ -49,11 +57,12 @@ class allocator{
         allocator(const allocator& allocator) = delete ;
         allocator& operator=(const allocator& allocator) = delete ;
 
-        template <typename Obj , typename... Args>
-        [[nodiscard]] auto allocate_and_construct(Args&&... args) -> Obj* {
+        template <typename Obj>
+        requires std::is_implicit_lifetime_v<Obj> && std::is_default_constructible_v<Obj>
+        [[nodiscard]] auto allocate() -> Obj* {
             if constexpr (Policy::fallback_to_new && Policy::size_check_validations) {
                 if(switched_to_fallback_){
-                    return new Obj(std::forward<Args>(args)...) ;
+                    return new Obj() ;
                 }
                 // Check for the worst case scenario if the object fits
                 // If it doesn't switch the ptr to the fallback resource
@@ -66,14 +75,14 @@ class allocator{
 
                 if(!pool_.owns(reinterpret_cast<const void*>(worst_scenario_offset))){
                     switched_to_fallback_ = true ;
-                    return new Obj(std::forward<Args>(args)...) ;
+                    return new Obj() ;
                 }
             }
 
             // Just before allocating we check if there is enough
             // space for the object . If there is not add another pool
 
-            auto location = pool_.template allocate<Obj>() ;
+            auto location = pool_.template claim<Obj>() ;
 
             if constexpr (Policy::nullptr_checks) {
                 // A nullptr check will prevent the
@@ -84,14 +93,15 @@ class allocator{
                 }
             }
 
-            return std::construct_at(location , std::forward<Args>(args)...) ;
+            return std::start_lifetime_as<Obj>(location) ;
         }
 
-        template <typename Obj , typename... Args>
-        [[nodiscard]] auto allocate_and_construct_array(std::size_t count , Args&&... args) -> Obj* {
+        template <typename Obj>
+        requires std::is_implicit_lifetime_v<Obj> && std::is_default_constructible_v<Obj>
+        [[nodiscard]] auto allocate_array(std::size_t count) -> Obj* {
             if constexpr (Policy::fallback_to_new && Policy::size_check_validations) {
                 if(switched_to_fallback_){
-                    return new Obj[count]{{args...}} ;
+                    return new Obj[count]{ } ;
                 }
                 auto bump_location = pool_.acquire_bump() ;
 
@@ -100,45 +110,43 @@ class allocator{
 
                 if(!pool_.owns(reinterpret_cast<const void*>(worst_scenario_offset))){
                     switched_to_fallback_ = true ;
-                    return new Obj[count]{{args...}} ;
+                    return new Obj[count]{ } ;
                 }
             }
 
             // Just before allocating we check if there is enough
             // space for the object . If there is not add another pool
 
-            auto location = pool_.template allocate_array<Obj>(count) ;
+            auto location = pool_.template claim_array<Obj>(count) ;
 
             if constexpr (Policy::nullptr_checks){
                 if(!static_cast<bool>(location)){
                         return nullptr ;
                 }
             }
-            // Already constructed one , construct count-1 objects
-            // Same here , copies don't move the objects
-            Obj* first_constructed = std::construct_at(location , args...) ;
-            // The location pointer if not nullptr
-            // will already be aligned to Obj
-            //
-            // I really don't like this loop
-            for(std::size_t i = {1uz} ; i < count ; ++i){
-                // Make copies instead of moving
-                std::construct_at(location + i, args...);
-            }
-            return first_constructed ;
+
+            return std::start_lifetime_as_array<Obj>(location , count) ;
         }
 
-        constexpr inline auto using_fallback_resource() const noexcept -> bool {
+        inline auto using_fallback_resource() const noexcept -> bool {
             return switched_to_fallback_ ;
         }
 
-        constexpr inline auto remaining_capacity() const noexcept -> std::size_t {
+        inline auto remaining_capacity() const noexcept -> std::size_t {
             return pool_.remaining_capacity() ;
         }
 
-        constexpr inline auto reclaim_memory() noexcept -> void {
+        inline auto reclaim_memory() noexcept -> void {
             pool_.reclaim() ;
             return ;
+        }
+
+        // For benchmarking use ONLY
+        //
+        // Exposes the internal pool start pointer
+        // Should NEVER be messed with
+        inline auto expose_internal_pool_start() const noexcept -> const void* {
+            return handled_pools_start_ ;
         }
 };
 

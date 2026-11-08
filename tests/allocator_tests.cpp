@@ -7,7 +7,8 @@
 TEST(allocator_default_policy , valid_behavior_allocate_and_construct){
     tip::allocator<tip::default_policy , 2048> allocator ;
 
-    auto ptr = allocator.allocate_and_construct<double>(10.0f) ;
+    auto ptr = allocator.allocate<double>() ;
+    *ptr = 10.0f ;
 
     EXPECT_NE(ptr , nullptr) ;
     EXPECT_FALSE(allocator.using_fallback_resource()) ;
@@ -26,13 +27,14 @@ TEST(allocator_default_policy , valid_behavior_allocate_and_construct_array){
         char a = ' ' ;
     };
 
-    auto ptr = allocator.allocate_and_construct_array<box>(10, 'a') ;
+    auto ptr = allocator.allocate_array<box>(10) ;
 
     EXPECT_NE(ptr , nullptr) ;
     EXPECT_FALSE(allocator.using_fallback_resource()) ;
     EXPECT_LE(allocator.remaining_capacity() , (2048-(sizeof(box)*10))) ;
 
     for(std::size_t i = {0uz} ; i < 10 ; ++i){
+        ptr[i].a = 'a' ;
         EXPECT_EQ(ptr[i].a , 'a') ;
     }
 }
@@ -49,7 +51,10 @@ TEST(allocator_permissive_policy , fallback_to_new_single_object){
 
     std::size_t initial_capacity = allocator.remaining_capacity() ;
 
-    auto ptr = allocator.allocate_and_construct<huge_object>('a') ;
+    auto ptr = allocator.allocate<huge_object>() ;
+
+    // Set it to the value we want
+    ptr->a = 'a' ;
 
     std::size_t capacity_after_allocation = allocator.remaining_capacity() ;
 
@@ -81,7 +86,11 @@ TEST(allocator_permissive_policy , fallback_to_new_array_of_objects){
 
     constexpr std::size_t count = 100 ;
 
-    auto ptr = allocator.allocate_and_construct_array<huge_object>(count,'a',10,13.3f) ;
+    auto ptr = allocator.allocate_array<huge_object>(count) ;
+
+    for(std::size_t i = {0uz} ; i < count ; ++i){
+        ptr[i] = {'a',10,13.3f} ;
+    }
 
     std::size_t capacity_after_allocation = allocator.remaining_capacity() ;
 
@@ -99,4 +108,51 @@ TEST(allocator_permissive_policy , fallback_to_new_array_of_objects){
 
     // Free the pointer
     delete[]  ptr ;
+}
+
+TEST(allocator_default_policy , allocate_pool_out_of_memory){
+    tip::allocator<tip::default_policy , 2> allocator ;
+
+    // Try to allocate and construct
+    // We won't have enough space so
+    // we will receive a nullptr
+    // We should not SEGFAULT
+    auto ptr = allocator.allocate<double>() ;
+    EXPECT_EQ(ptr , nullptr) ;
+}
+
+TEST(allocator_default_policy , valid_allocate_and_construct_access){
+    tip::allocator<tip::default_policy , 2048> allocator ;
+
+    struct alignas(64) UDT{
+        int a = 0 ;
+    };
+
+    auto ptr = allocator.allocate<UDT>() ;
+
+    ptr->a = 67 ;
+
+    EXPECT_EQ(ptr->a, 67) ;
+}
+
+TEST(memory_pool , allocate_array_valid){
+    tip::allocator<tip::default_policy , 2048> allocator ;
+
+    struct alignas(128) UDT{
+        int a = 0 ;
+        double b = 0.0f ;
+   };
+
+    std::size_t count = 10 ;
+
+    auto start = allocator.allocate_array<UDT>(count) ;
+
+    EXPECT_NE(start , nullptr) ;
+
+    for(std::size_t i = {0uz} ; i < count ; ++i){
+        start[i].a = 67 ;
+        start[i].b = 67.0f ;
+        EXPECT_EQ(start[i].a , 67) ;
+        EXPECT_DOUBLE_EQ(start[i].b , 67.0f) ;
+    }
 }
