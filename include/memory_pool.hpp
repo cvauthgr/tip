@@ -6,6 +6,7 @@
 
 #include "memory_pool_concepts.hpp"
 #include "policies.hpp"
+#include "unsafe_align.hpp"
 
 namespace tip {
 
@@ -54,8 +55,15 @@ class memory_pool {
 
         template <typename Obj>
         [[nodiscard]] auto claim(std::size_t alignment = alignof(Obj)) -> Obj* {
+            void* aligned_ptr = nullptr ;
             // Try to align our bump pointer
-            auto aligned_ptr = std::align(alignment , sizeof(Obj) , bump_ptr_ , capacity_) ;
+            if constexpr(!Policy::unsafe_align_ptrs){
+                aligned_ptr = std::align(alignment , sizeof(Obj) , bump_ptr_ , capacity_) ;
+            }
+
+            if constexpr(Policy::unsafe_align_ptrs){
+                aligned_ptr = unsafe_align(alignment , bump_ptr_ , capacity_) ;
+            }
 
             if constexpr(Policy::nullptr_checks){
                 if(aligned_ptr != nullptr){
@@ -172,7 +180,16 @@ class memory_pool {
             // Create a virtual buffer so std::align can play without messing with the pool's
             // internal state
             std::size_t virtual_buffer = static_cast<std::size_t>(-1) ;
-            auto aligned_ptr = std::align(alignof(Obj) , sizeof(Obj)*count , bump_copy , virtual_buffer) ;
+            void* aligned_ptr = nullptr ;
+
+            if constexpr(!Policy::unsafe_align_ptrs){
+                aligned_ptr = std::align(alignof(Obj) , sizeof(Obj)*count , bump_copy , virtual_buffer) ;
+            }
+
+            if constexpr(Policy::unsafe_align_ptrs){
+                aligned_ptr = unsafe_align(alignof(Obj) ,bump_copy , virtual_buffer) ;
+            }
+
             if(this->owns(aligned_ptr) && this->owns(static_cast<Obj*>(aligned_ptr)+count)){
                 return true  ;
             }
