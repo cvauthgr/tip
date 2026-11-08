@@ -8,7 +8,9 @@
 //
 // -> The bump pointer is placed at the start of the new pool
 // -> The capacity is now reset to the new size of the new pool
-// -> Any cached checkpoints are invalidated
+//
+// -> IMPORTANT : THE ALLOCATOR NOW TRACKS THE INTERNAL POOL START TOO , THIS NEEDS TO BE
+// ACCOUNTED FOR TOO
 //
 // Probably shouldn't be mentioned here but fallback_to_new + pool_chaining should be prohibited
 
@@ -90,7 +92,6 @@ public:
       // Make the needed resets
       // to the main pool we are handling
       pool_resource_->reseat_bump_pointer(new_pool->acquire_internal_pool_start());
-      pool_resource_->invalidate_cached_checkpoint(new_pool->acquire_internal_pool_start());
 
       // Increment the pool index
       pool_index_++;

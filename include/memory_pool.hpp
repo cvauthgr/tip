@@ -3,11 +3,10 @@
 #include <cstddef>
 #include <memory>
 #include <new>
-#include <type_traits>
-#include <utility>
 
 #include "memory_pool_concepts.hpp"
 #include "policies.hpp"
+#include "unsafe_align.hpp"
 
 namespace tip {
 
@@ -20,37 +19,7 @@ class memory_pool {
         void* bump_ptr_ = nullptr ;
         std::size_t capacity_ = Size ;
 
-        // Implementation for checkpoints
-        // Might not like it and remove it later
-        //
-        // The idea is that you request a checkpoint
-        // through an API like .cache_checkpoint()
-        // and internally the last known location
-        // of the bump pointer is saved . When
-        // through another API like revert() we request
-        // to move back to a specified checkpoint and
-        // continue allocating from that point forward
-        // The objects are simply over-written
-        //
-        // This will obviously need to support
-        // allocations from arrays of object
-
-        struct alignas(64) checkpoint_{
-            // Bump reset
-            void* checkpoint_ptr = nullptr ;
-            // Capacity reset
-            std::size_t last_known_capacity = 0 ;
-
-            checkpoint_() = delete ;
-
-            explicit checkpoint_(void* current_bump_location , std::size_t current_capacity)
-                                 : checkpoint_ptr {current_bump_location} , last_known_capacity {current_capacity}
-            {}
-        };
-
-        checkpoint_ cached_ = checkpoint_(initial_start_ , Size) ;
-
-    public :
+        public :
         explicit memory_pool() {
             // Try to allocate (size) raw bytes
             // only if the size in non-zero
@@ -80,16 +49,21 @@ class memory_pool {
           }
         }
 
-        [[nodiscard]] inline constexpr auto acquire_internal_pool_start() const noexcept -> const void* {
+        [[nodiscard]] inline constexpr auto acquire_internal_pool_start() const noexcept -> void* {
             return initial_start_ ;
         }
 
         template <typename Obj>
-        requires std::is_implicit_lifetime_v<Obj> &&
-                 std::is_trivially_destructible_v<Obj>
-        [[nodiscard]] auto allocate(std::size_t alignment = alignof(Obj)) -> Obj* {
+        [[nodiscard]] auto claim(std::size_t alignment = alignof(Obj)) -> Obj* {
+            void* aligned_ptr = nullptr ;
             // Try to align our bump pointer
-            auto aligned_ptr = std::align(alignment , sizeof(Obj) , bump_ptr_ , capacity_) ;
+            if constexpr(!Policy::unsafe_align_ptrs){
+                aligned_ptr = std::align(alignment , sizeof(Obj) , bump_ptr_ , capacity_) ;
+            }
+
+            if constexpr(Policy::unsafe_align_ptrs){
+                aligned_ptr = unsafe_align(alignment , bump_ptr_ , capacity_) ;
+            }
 
             if constexpr(Policy::nullptr_checks){
                 if(aligned_ptr != nullptr){
@@ -112,53 +86,6 @@ class memory_pool {
             bump_ptr_ = static_cast<Obj*>(bump_ptr_) + 1 ;
 
             return static_cast<Obj*>(aligned_ptr) ;
-        }
-
-        // Could be named just claim_and_construct
-        // Also ignore any safety checks because
-        // this is C++ duh
-        //
-        // Should be exposed by the allocator
-        template <typename Obj , typename... Args>
-        requires std::is_implicit_lifetime_v<Obj> &&
-                 std::is_trivially_destructible_v<Obj>
-        [[nodiscard]] auto allocate_and_construct(Args&&... args) -> Obj* {
-            auto location = this->allocate<Obj>() ;
-
-            if constexpr (Policy::nullptr_checks) {
-                // A nullptr check will prevent the
-                // SEGFAULT when nullptr gets passed
-                // in std::construct_at
-                if(!static_cast<bool>(location)){
-                    return nullptr ;
-                }
-            }
-
-            return std::construct_at(location , std::forward<Args>(args)...) ;
-        }
-
-        // Should be exposed by the allocator
-        template <typename Obj , typename... Args>
-        requires std::is_implicit_lifetime_v<Obj> &&
-                 std::is_trivially_destructible_v<Obj>
-        [[nodiscard]] auto allocate_and_construct_array(std::size_t count , Args&&... args) -> Obj* {
-            auto location = this->allocate_array<Obj>(count) ;
-
-            if constexpr(Policy::nullptr_checks){
-                if(!static_cast<bool>(location)){
-                    return nullptr ;
-                }
-            }
-            // Already constructed one , construct count-1 objects
-            Obj* first_constructed = std::construct_at(location , std::forward<Args>(args)...) ;
-            // The location pointer if not nullptr
-            // will already be aligned to Obj
-            //
-            // I really don't like this loop
-            for(std::size_t i = {1uz} ; i < count ; ++i){
-                std::construct_at(location + i, std::forward<Args>(args)...);
-            }
-            return first_constructed ;
         }
 
         constexpr inline auto remaining_capacity() const noexcept -> std::size_t {
@@ -185,22 +112,6 @@ class memory_pool {
             return false ;
         }
 
-        constexpr auto cache_checkpoint() -> void {
-            // Cache the checkpoint
-            cached_ = checkpoint_(bump_ptr_ , capacity_) ;
-
-            return ;
-        }
-
-        // Not a general fuck around untill you find out API
-        // Can ONLY move you back one time !!!
-        constexpr auto revert() -> void {
-            // An one time undo (from the point of caching the checkpoint)
-            bump_ptr_ = cached_.checkpoint_ptr ;
-            capacity_ = cached_.last_known_capacity ;
-
-            return ;
-        }
 
         constexpr inline auto used_memory() const noexcept -> std::size_t {
             return Size - capacity_ ;
@@ -209,9 +120,8 @@ class memory_pool {
         // Make it return a span RAHHHHHHH (too slow for my liking)
         // AND NO SAFETY CHECKING BECAUSE IT IS C++
         template <typename Obj>
-        requires std::is_implicit_lifetime_v<Obj> &&
-                 std::is_trivially_destructible_v<Obj>
-        [[nodiscard]] auto allocate_array(std::size_t count) -> Obj* {
+        [[nodiscard]] auto claim_array(std::size_t count) -> Obj* {
+
             if constexpr (Policy::can_fit_checks) {
                 // Here I will implement the fix can_fit() was created for
                 if(!this->can_fit<Obj>(count)){
@@ -221,7 +131,7 @@ class memory_pool {
             // Allocate the first object
             // The pointer returned is pointing at the start
             // of the first object "allocated"
-            Obj* first_in_line = this->allocate<Obj>() ;
+            Obj* first_in_line = this->claim<Obj>() ;
             // Check if for count we stay inside the capacity
             //
             // We need to check if the last object is fully inside
@@ -263,8 +173,6 @@ class memory_pool {
         // Checks if an array allocation is possible
         // More in problems.md
         template <typename Obj>
-        requires std::is_implicit_lifetime_v<Obj> &&
-                 std::is_trivially_destructible_v<Obj>
         [[nodiscard]] inline constexpr auto can_fit(std::size_t count = 1) const noexcept -> bool {
             // Make an unavoidable copy of the bump ptr because the call to std::align
             // per our circumstances is GUARANTEED to move it
@@ -272,7 +180,16 @@ class memory_pool {
             // Create a virtual buffer so std::align can play without messing with the pool's
             // internal state
             std::size_t virtual_buffer = static_cast<std::size_t>(-1) ;
-            auto aligned_ptr = std::align(alignof(Obj) , sizeof(Obj)*count , bump_copy , virtual_buffer) ;
+            void* aligned_ptr = nullptr ;
+
+            if constexpr(!Policy::unsafe_align_ptrs){
+                aligned_ptr = std::align(alignof(Obj) , sizeof(Obj)*count , bump_copy , virtual_buffer) ;
+            }
+
+            if constexpr(Policy::unsafe_align_ptrs){
+                aligned_ptr = unsafe_align(alignof(Obj) ,bump_copy , virtual_buffer) ;
+            }
+
             if(this->owns(aligned_ptr) && this->owns(static_cast<Obj*>(aligned_ptr)+count)){
                 return true  ;
             }
@@ -286,10 +203,6 @@ class memory_pool {
             bump_ptr_ = new_bump ;
         }
 
-        auto inline constexpr invalidate_cached_checkpoint(void* new_start) noexcept -> void {
-            cached_.checkpoint_ptr = new_start ;
-            cached_.last_known_capacity = Size ;
-        }
 };
 
 }// End of the tip namespace

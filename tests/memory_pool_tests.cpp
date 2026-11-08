@@ -13,57 +13,9 @@ TEST(memory_pool , bump_not_null_on_constructor){
 TEST(memory_pool , allocate_fundamental_data_type){
     tip::memory_pool<tip::default_policy , 2048> pool ;
 
-    auto int_ptr = pool.allocate<int>() ;
+    auto int_ptr = pool.claim<int>() ;
 
     EXPECT_NE(int_ptr , nullptr);
-}
-
-TEST(memory_pool , checkpoint_after_one_allocation){
-    tip::memory_pool<tip::default_policy , 2048> pool ;
-
-    // Allocate once first
-    struct alignas(512) box {
-        char a = 'a' ;
-    };
-
-    [[maybe_unused]] auto huge_allocation_ptr = pool.allocate<box>() ;
-    // Acquire the bump ptr location and cache a checkpoint
-    auto initial_bump = pool.acquire_bump() ;
-    auto capacity_at_checkpoint = pool.remaining_capacity() ;
-    pool.cache_checkpoint() ;
-
-    // Allocate again
-    huge_allocation_ptr = pool.allocate<box>() ;
-    // revert
-    pool.revert() ;
-
-    EXPECT_EQ(initial_bump , pool.acquire_bump()) ;
-    // Also check for a capacity mismatch
-    EXPECT_EQ(capacity_at_checkpoint , pool.remaining_capacity()) ;
-}
-
-TEST(memory_pool , checkpoint_after_array_allocation){
-    tip::memory_pool<tip::default_policy , 2048> pool ;
-
-    // Allocate an array first
-    struct alignas(64) box {
-        char a = 'a' ;
-    };
-
-    [[maybe_unused]] auto huge_allocation_ptr = pool.allocate_array<box>(10) ;
-    // Acquire the bump ptr location and cache a checkpoint
-    auto initial_bump = pool.acquire_bump() ;
-    auto capacity_at_checkpoint = pool.remaining_capacity() ;
-    pool.cache_checkpoint() ;
-
-    // Allocate an array again
-    huge_allocation_ptr = pool.allocate_array<box>(10) ;
-    // revert
-    pool.revert() ;
-
-    EXPECT_EQ(initial_bump , pool.acquire_bump()) ;
-    // Also check for a capacity mismatch
-    EXPECT_EQ(capacity_at_checkpoint , pool.remaining_capacity()) ;
 }
 
 TEST(memory_pool , space_reclamation){
@@ -77,7 +29,7 @@ TEST(memory_pool , space_reclamation){
     };
 
     // Allocate on the pool
-    [[maybe_unused]] auto ptr = pool.allocate_array<box>(5) ;
+    [[maybe_unused]] auto ptr = pool.claim_array<box>(5) ;
 
     // Check that capacity changed
     EXPECT_NE(pool.remaining_capacity() , capacity) ;
@@ -98,7 +50,7 @@ TEST(memory_pool , owns_valid_allocation_pointer){
 
     // First try an int which under
     // all circumstances will fit
-    auto in_pool = pool.allocate<int>() ;
+    auto in_pool = pool.claim<int>() ;
     EXPECT_TRUE(pool.owns(in_pool)) ;
 
     // Now for the final boss
@@ -121,7 +73,7 @@ TEST(memory_pool , owns_off_by_one){
     // detect them
     //
     // -Me
-    auto in_pool = pool.allocate<char>() ;
+    auto in_pool = pool.claim<char>() ;
     // Sanity check
     EXPECT_TRUE(pool.owns(in_pool));
     // Off by one now . As a char has an
@@ -144,9 +96,9 @@ TEST(memory_pool , owns_small_pool_size_fail){
     tip::memory_pool<tip::default_policy , 2> pool ;
 
     // Valid as char is aligned to any memory adress
-    auto first_allocation = pool.allocate<char>() ;
+    auto first_allocation = pool.claim<char>() ;
     // Valid for the same reason
-    auto second_allocation = pool.allocate<char>() ;
+    auto second_allocation = pool.claim<char>() ;
 
     // Both should be valid
     EXPECT_TRUE(pool.owns(first_allocation)) ;
@@ -190,7 +142,7 @@ TEST(memory_pool , single_allocation_pool_out_of_space){
     };
 
     // This should be returning nullptr
-    auto ptr = pool.allocate<UDT>() ;
+    auto ptr = pool.claim<UDT>() ;
 
     EXPECT_EQ(ptr , nullptr) ;
 }
@@ -202,56 +154,9 @@ TEST(memory_pool , multiple_allocations_pool_out_of_space){
         char a = 'a' ;
     };
 
-    auto ptr = pool.allocate_array<UDT>(100) ;
+    auto ptr = pool.claim_array<UDT>(100) ;
 
     EXPECT_EQ(ptr , nullptr) ;
-}
-
-// Tests for allocate and construct
-
-TEST(memory_pool , allocate_and_construct_pool_out_of_memory){
-    tip::memory_pool<tip::default_policy , 2> pool ;
-
-    // Try to allocate and construct
-    // We won't have enough space so
-    // we will receive a nullptr
-    // We should not SEGFAULT
-    auto ptr = pool.allocate_and_construct<double>(0.0f) ;
-    EXPECT_EQ(ptr , nullptr) ;
-}
-
-TEST(memory_pool , valid_allocate_and_construct_access){
-    tip::memory_pool<tip::default_policy , 2048> pool ;
-
-    struct alignas(64) UDT{
-        int a = 0 ;
-    };
-
-    auto ptr = pool.allocate_and_construct<UDT>(67) ;
-
-    EXPECT_EQ(ptr->a, 67) ;
-}
-
-TEST(memory_pool , allocate_and_construct_array_pool_out_of_memory){
-    // For this test a nullptr with
-    // no seg fault is expected
-    tip::memory_pool<tip::default_policy , 2048> pool ;
-
-    struct alignas(128) UDT{
-        int a = 0 ;
-        double b = 0.0f ;
-   };
-
-    std::size_t count = 10 ;
-
-    auto start = pool.allocate_and_construct_array<UDT>(count , 67 , 67.0f) ;
-
-    EXPECT_NE(start , nullptr) ;
-
-    for(std::size_t i = {0uz} ; i < count ; ++i){
-        EXPECT_EQ(start[i].a , 67) ;
-        EXPECT_DOUBLE_EQ(start[i].b , 67.0f) ;
-    }
 }
 
 // Used to reproduce the bug in problems.md
@@ -264,25 +169,7 @@ TEST(memory_pool , bump_moves_after_failed_allocate_array){
     // Fail to allocate the array
     // Will return the nullptr but the
     // bump will move either way
-    [[maybe_unused]] auto failed_allocate_array_ptr = pool.allocate_array<double>(1'000) ;
-
-    // Acquire the current bump ptr again
-    auto location_after_fail = pool.acquire_bump() ;
-
-    EXPECT_EQ(initial_location , location_after_fail) ;
-}
-
-// Used to reproduce the bug
-TEST(memory_pool , bump_moves_after_failed_allocate_and_construct_array){
-    tip::memory_pool<tip::default_policy , 256> pool ;
-
-    // Acquire the current bump location
-    auto initial_location = pool.acquire_bump() ;
-
-    // Fail to allocate the array
-    // Will return the nullptr but the
-    // bump will move either way
-    [[maybe_unused]] auto failed_allocate_array_ptr = pool.allocate_and_construct_array<double>(1'000 , 0.0f) ;
+    [[maybe_unused]] auto failed_allocate_array_ptr = pool.claim_array<double>(1'000) ;
 
     // Acquire the current bump ptr again
     auto location_after_fail = pool.acquire_bump() ;
@@ -310,40 +197,6 @@ TEST(memory_pool , valid_can_fit_normal_request){
     EXPECT_TRUE(pool.can_fit<double>(10)) ;
 }
 
-TEST(memory_pool , valid_can_fit_after_allocation){
-    tip::memory_pool<tip::default_policy , 2048> pool ;
-
-    [[maybe_unused]] auto ptr = pool.allocate_and_construct_array<double>(200, 0.0f) ;
-
-    // Worst case scenario , the ptr had to move 7 bytes forward
-    // 2048 - 7 = 2041 - 8*200 = 2041 - 1600 = 441
-    // 441 / 8 = 55 doubles can fit (and some change)
-
-    EXPECT_TRUE(pool.can_fit<double>(55)) ;
-}
-
-TEST(memory_pool , invalid_can_fit_char_after_allocate_and_construct){
-    tip::memory_pool<tip::default_policy , 2048> pool ;
-
-    [[maybe_unused]] auto ptr = pool.allocate_and_construct_array<char>(2048, ' ') ;
-
-    EXPECT_FALSE(pool.can_fit<char>(1)) ;
-}
-
-TEST(memory_pool , invalid_can_fit_big_struct_after_allocate_and_construct){
-    struct alignas(512) box{
-        char a = ' ' ;
-    };
-
-    tip::memory_pool<tip::default_policy , 2048> pool ;
-
-    [[maybe_unused]] auto initial_construction = pool.allocate_and_construct_array<box>(2 , ' ') ;
-
-    // Worst case we still have 2048 - (2*sizeof(box)+(511)) = 513 bytes left
-    // So it would be impossible to fit 2 or more of those structs in the pool
-    EXPECT_FALSE(pool.can_fit<box>(2)) ;
-}
-
 TEST(memory_pool , impossible_can_fit){
     tip::memory_pool<tip::default_policy , 1024> pool ;
 
@@ -356,4 +209,62 @@ TEST(memory_pool , impossible_can_fit){
     // so let's cut the pool size by half
     // (2048 prior to 1024 now)
     EXPECT_FALSE(pool.can_fit<box>()) ;
+}
+
+TEST(memory_pool , valid_can_fit_after_claim_array){
+    tip::memory_pool<tip::default_policy , 2048> pool ;
+
+    const std::size_t count = 200 ;
+
+    [[maybe_unused]] auto ptr = pool.claim_array<double>(count) ;
+
+    // Worst case scenario , the ptr had to move 7 bytes forward
+    // 2048 - 7 = 2041 - 8*200 = 2041 - 1600 = 441
+    // 441 / 8 = 55 doubles can fit (and some change)
+
+    EXPECT_TRUE(pool.can_fit<double>(55)) ;
+}
+
+TEST(memory_pool , invalid_can_fit_char_after_claim_array){
+    tip::memory_pool<tip::default_policy , 2048> pool ;
+
+    [[maybe_unused]] auto ptr = pool.claim_array<char>(2048) ;
+
+    EXPECT_FALSE(pool.can_fit<char>(1)) ;
+}
+
+TEST(memory_pool , invalid_can_fit_big_struct_after_claim){
+    struct alignas(512) box{
+        char a = ' ' ;
+    };
+
+    tip::memory_pool<tip::default_policy , 2048> pool ;
+
+    std::size_t count = 2 ;
+
+    [[maybe_unused]] auto initial_construction = pool.claim_array<box>(count) ;
+
+    // Worst case we still have 2048 - (2*sizeof(box)+(511)) = 513 bytes left
+    // So it would be impossible to fit 2 or more of those structs in the pool
+    EXPECT_FALSE(pool.can_fit<box>(2)) ;
+}
+
+// Used to reproduce the bug
+TEST(memory_pool , bump_moves_after_failed_claim_array){
+    tip::memory_pool<tip::default_policy , 256> pool ;
+
+    // Acquire the current bump location
+    auto initial_location = pool.acquire_bump() ;
+
+    std::size_t count = 1'000 ;
+
+    // Fail to allocate the array
+    // Will return the nullptr but the
+    // bump will move either way
+    [[maybe_unused]] auto failed_allocate_array_ptr = pool.claim_array<double>(count) ;
+
+    // Acquire the current bump ptr again
+    auto location_after_fail = pool.acquire_bump() ;
+
+    EXPECT_EQ(initial_location , location_after_fail) ;
 }
