@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <memory>
 #include <new>
+#include <type_traits>
 #include <utility>
 
 #include "memory_pool_concepts.hpp"
@@ -84,6 +85,8 @@ class memory_pool {
         }
 
         template <typename Obj>
+        requires std::is_implicit_lifetime_v<Obj> &&
+                 std::is_trivially_destructible_v<Obj>
         [[nodiscard]] auto allocate(std::size_t alignment = alignof(Obj)) -> Obj* {
             // Try to align our bump pointer
             auto aligned_ptr = std::align(alignment , sizeof(Obj) , bump_ptr_ , capacity_) ;
@@ -117,6 +120,8 @@ class memory_pool {
         //
         // Should be exposed by the allocator
         template <typename Obj , typename... Args>
+        requires std::is_implicit_lifetime_v<Obj> &&
+                 std::is_trivially_destructible_v<Obj>
         [[nodiscard]] auto allocate_and_construct(Args&&... args) -> Obj* {
             auto location = this->allocate<Obj>() ;
 
@@ -134,6 +139,8 @@ class memory_pool {
 
         // Should be exposed by the allocator
         template <typename Obj , typename... Args>
+        requires std::is_implicit_lifetime_v<Obj> &&
+                 std::is_trivially_destructible_v<Obj>
         [[nodiscard]] auto allocate_and_construct_array(std::size_t count , Args&&... args) -> Obj* {
             auto location = this->allocate_array<Obj>(count) ;
 
@@ -202,8 +209,9 @@ class memory_pool {
         // Make it return a span RAHHHHHHH (too slow for my liking)
         // AND NO SAFETY CHECKING BECAUSE IT IS C++
         template <typename Obj>
+        requires std::is_implicit_lifetime_v<Obj> &&
+                 std::is_trivially_destructible_v<Obj>
         [[nodiscard]] auto allocate_array(std::size_t count) -> Obj* {
-
             if constexpr (Policy::can_fit_checks) {
                 // Here I will implement the fix can_fit() was created for
                 if(!this->can_fit<Obj>(count)){
@@ -255,6 +263,8 @@ class memory_pool {
         // Checks if an array allocation is possible
         // More in problems.md
         template <typename Obj>
+        requires std::is_implicit_lifetime_v<Obj> &&
+                 std::is_trivially_destructible_v<Obj>
         [[nodiscard]] inline constexpr auto can_fit(std::size_t count = 1) const noexcept -> bool {
             // Make an unavoidable copy of the bump ptr because the call to std::align
             // per our circumstances is GUARANTEED to move it

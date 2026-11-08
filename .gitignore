@@ -1,4 +1,6 @@
 build/
+build-perf/
+
 compile_commands.json
 
 /docs/problems.md

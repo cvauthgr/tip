@@ -50,6 +50,8 @@ class allocator{
         allocator& operator=(const allocator& allocator) = delete ;
 
         template <typename Obj , typename... Args>
+        requires std::is_implicit_lifetime_v<Obj> &&
+                 std::is_trivially_destructible_v<Obj>
         [[nodiscard]] auto allocate_and_construct(Args&&... args) -> Obj* {
             if constexpr (Policy::fallback_to_new && Policy::size_check_validations) {
                 if(switched_to_fallback_){
@@ -88,6 +90,8 @@ class allocator{
         }
 
         template <typename Obj , typename... Args>
+        requires std::is_implicit_lifetime_v<Obj> &&
+                 std::is_trivially_destructible_v<Obj>
         [[nodiscard]] auto allocate_and_construct_array(std::size_t count , Args&&... args) -> Obj* {
             if constexpr (Policy::fallback_to_new && Policy::size_check_validations) {
                 if(switched_to_fallback_){
