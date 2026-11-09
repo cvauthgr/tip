@@ -1,8 +1,8 @@
 build/
-build-perf/
 
 compile_commands.json
 
 /docs/problems.md
 /docs/tasks.md
 /docs/TODO.md
+.profkit

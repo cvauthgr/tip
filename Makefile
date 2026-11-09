@@ -11,7 +11,7 @@ tests :
 	ctest --test-dir build --output-on-failure
 
 benchmarks :
-	./build/run_benchmarks
+	taskset -c 2 ./build/run_benchmarks
 
 main :
 	./build/tip

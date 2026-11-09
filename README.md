@@ -2,6 +2,27 @@
 
 A high performance linear memory allocator written in C++23 
 
+# Performance metrics 
+
+## Benchmarks
+
+A nice bar graph (created by Claude) :
+
+![Performance comparison](media/performance_bar_graph.webp)
+
+
+ns per allocation, 32 KiB pool, memory not touched (measures claim cost only, excludes first-touch and construction).
+
+| Payload | glibc malloc + free | `std::pmr` | `tip::allocator` |
+|--------:|--------------------:|-----------:|-----------------:|
+| 64 B    | 21.16 ns | 0.50 ns | 0.50 ns |
+| 256 B   | 20.10 ns | 0.55 ns | 0.55 ns |
+| 1 KiB   | 15.41 ns | 0.59 ns | 0.56 ns |
+| 4 KiB   | 20.25 ns | 0.71 ns | 0.55 ns |
+| 16 KiB  | 18.40 ns | 1.25 ns | 0.73 ns |
+
+**Method:** pinned core, performance governor, locked frequency, 15 repetitions (mean). Per bench iteration : fill the whole pool, then release it. Arenas do N allocations plus one bulk reset; glibc does N mallocs plus N frees. At 64 B and 256 B `tip` and `pmr` are equal within (acceptable) noise. The gap at larger sizes is roughly constant per iteration, likely a cheaper reset rather than a faster allocate(I imagine haven't read the STL implementation **yet**).
+
 ## Why use it ?
 
 As a linear allocator tip does minimal work under the hood to allocate and construct an object
