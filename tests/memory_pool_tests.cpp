@@ -234,18 +234,18 @@ TEST(memory_pool , invalid_can_fit_char_after_claim_array){
 }
 
 TEST(memory_pool , invalid_can_fit_big_struct_after_claim){
-    struct alignas(512) box{
-        char a = ' ' ;
+    struct box{
+        char data[64] ;
     };
 
-    tip::memory_pool<tip::default_policy , 2048> pool ;
+    tip::memory_pool<tip::default_policy , 256> pool ;
 
-    std::size_t count = 2 ;
+    std::size_t count = 3 ;
 
     [[maybe_unused]] auto initial_construction = pool.claim_array<box>(count) ;
 
-    // Worst case we still have 2048 - (2*sizeof(box)+(511)) = 513 bytes left
-    // So it would be impossible to fit 2 or more of those structs in the pool
+    EXPECT_LE(pool.remaining_capacity() , 256-(3*64)) ;
+
     EXPECT_FALSE(pool.can_fit<box>(2)) ;
 }
 

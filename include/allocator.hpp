@@ -81,6 +81,28 @@ class allocator{
 
             // Just before allocating we check if there is enough
             // space for the object . If there is not add another pool
+            if constexpr (Policy::pool_chaining && Policy::can_fit_checks) {
+                // If the current pool is unable
+                // of fitting the object acquire
+                // a new pool through the pool
+                // manager and make the changes
+                // necessary
+                if(!pool_.template can_fit<Obj>()){
+                    manager_.expand_pool_chain() ;
+                    // We also need to update the
+                    // handled pool's start change
+                    //
+                    // The bump as it got replaced
+                    // by the start of the new pool
+                    // is now also the internal pool
+                    // start
+                    //
+                    // Changed to acquire_internal_pool_start
+                    // to avoid using const_cast (obviously a bad idea)
+                    handled_pools_start_ = pool_.acquire_internal_pool_start() ;
+                }
+            }
+
 
             auto location = pool_.template claim<Obj>() ;
 
@@ -116,6 +138,27 @@ class allocator{
 
             // Just before allocating we check if there is enough
             // space for the object . If there is not add another pool
+            if constexpr (Policy::pool_chaining && Policy::can_fit_checks) {
+                // If the current pool is unable
+                // of fitting the object acquire
+                // a new pool through the pool
+                // manager and make the changes
+                // necessary
+                if(!pool_.template can_fit<Obj>(count)){
+                    manager_.expand_pool_chain() ;
+                    // We also need to update the
+                    // handled pool's start change
+                    //
+                    // The bump as it got replaced
+                    // by the start of the new pool
+                    // is now also the internal pool
+                    // start
+                    //
+                    // Changed to acquire_internal_pool_start
+                    // to avoid using const_cast (obviously a bad idea)
+                    handled_pools_start_ = pool_.acquire_internal_pool_start() ;
+                }
+            }
 
             auto location = pool_.template claim_array<Obj>(count) ;
 

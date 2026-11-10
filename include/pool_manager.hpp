@@ -27,8 +27,8 @@ template <AllocatorPolicy Policy,
           std::size_t MaxPoolsChained = 1>
 class pool_manager {
 private:
-  std::array<memory_pool<Policy, Size> *, MaxPoolsChained> pools_ = {};
-  memory_pool<Policy, Size> *pool_resource_ = nullptr;
+  std::array<memory_pool<Policy, Size>* , MaxPoolsChained> pools_ = {};
+  memory_pool<Policy, Size>* pool_resource_ = nullptr;
   std::size_t pool_index_ = 0;
 
   // Notifier that the pool manager won't keep
@@ -55,20 +55,8 @@ public:
 
   // Default destructor
   // The pools clean up after
-  // themselves but we have to
-  // clean the pointers to the
-  // pools themselves
-  //
-  // Delete all the dynamically
-  // allocated ones not the one
-  // created statically
-  ~pool_manager() {
-    if constexpr (MaxPoolsChained != 0 || !Policy::pool_chaining) {
-      for (std::size_t delete_index = {1uz}; delete_index < pools_.size(); ++delete_index) {
-        delete pools_[delete_index] ;
-      }
-    }
-  }
+  // themselves
+  ~pool_manager() = default ;
 
   // One API creating the next pool
   // and making the necessary changes
@@ -79,19 +67,25 @@ public:
         return;
       }
 
-      if (pools_.size() == Size) [[unlikely]] {
+      if (pools_.back() != nullptr) [[unlikely]] {
         stopped_chaining_ = true;
         return;
       }
 
       // Allocate the next pool
-      auto new_pool = new memory_pool<Policy, Size>;
+      auto new_pool = new memory_pool<Policy, Size>; // <- Leak exactly here
       // And save it
       pools_[pool_index_] = new_pool;
 
       // Make the needed resets
       // to the main pool we are handling
-      pool_resource_->reseat_bump_pointer(new_pool->acquire_internal_pool_start());
+      pool_resource_->reseat_bump_pointer(new_pool->acquire_internal_pool_start()) ;
+      // Reset the capacity too . This caused a massive bug when I was implementing
+      // the pool chaining feature
+      pool_resource_->hard_capacity_reset() ;
+      // We need to also reset the internal pool start pointer . This was
+      // the other half of the bug
+      pool_resource_->reseat_internal_start_pointer(new_pool->acquire_internal_pool_start()) ;
 
       // Increment the pool index
       pool_index_++;

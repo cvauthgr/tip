@@ -49,4 +49,8 @@ struct permissive_policy : default_policy {
     static constexpr bool fallback_to_new = true ;
 };
 
+struct monotonic_policy : default_policy {
+    static constexpr bool pool_chaining = true ;
+};
+
 }// End of the tip namespace

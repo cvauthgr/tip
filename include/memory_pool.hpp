@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <new>
 
@@ -103,13 +104,11 @@ class memory_pool {
         }
 
         constexpr auto owns(const void* ptr) const noexcept -> bool {
-            // ptr == initial_start_ is the start of the pool
-            // ptr == initial_start_ + size is the last valid memory adress the pool owns
-            if(ptr >= initial_start_ && ptr <= static_cast<std::byte*>(initial_start_)+Size){
-                return true ;
-            }
+            auto pool_start = reinterpret_cast<uintptr_t>(initial_start_) ;
+            auto pool_end = pool_start + Size ;
+            auto ptr_to_be_checked = reinterpret_cast<uintptr_t>(ptr) ;
 
-            return false ;
+            return (ptr_to_be_checked >= pool_start) && (ptr_to_be_checked <= pool_end) ;
         }
 
 
@@ -201,6 +200,17 @@ class memory_pool {
 
         auto inline constexpr reseat_bump_pointer(void* new_bump) noexcept -> void {
             bump_ptr_ = new_bump ;
+            return ;
+        }
+
+        auto inline constexpr reseat_internal_start_pointer(void* new_start) -> void {
+            initial_start_ = new_start ;
+            return ;
+        }
+
+        auto inline constexpr hard_capacity_reset() noexcept -> void {
+            capacity_ = Size ;
+            return ;
         }
 
 };
