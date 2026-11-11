@@ -196,23 +196,6 @@ class memory_pool {
             return false ;
         }
 
-        // Helpers for the pool manager
-
-        auto inline constexpr reseat_bump_pointer(void* new_bump) noexcept -> void {
-            bump_ptr_ = new_bump ;
-            return ;
-        }
-
-        auto inline constexpr reseat_internal_start_pointer(void* new_start) -> void {
-            initial_start_ = new_start ;
-            return ;
-        }
-
-        auto inline constexpr hard_capacity_reset() noexcept -> void {
-            capacity_ = Size ;
-            return ;
-        }
-
 };
 
 }// End of the tip namespace

@@ -14,87 +14,72 @@
 //
 // Probably shouldn't be mentioned here but fallback_to_new + pool_chaining should be prohibited
 
-#include <array>
+#include <cassert>
+#include <vector>
 #include <cstddef>
 
 #include "memory_pool.hpp"
 #include "memory_pool_concepts.hpp"
 
+#define MAX_CHAIN_BEFORE_ALLOC 16
+
 namespace tip {
 
 template <AllocatorPolicy Policy,
-          std::size_t Size,
-          std::size_t MaxPoolsChained = 1>
+          std::size_t Size
+          >
 class pool_manager {
 private:
-  std::array<memory_pool<Policy, Size>* , MaxPoolsChained> pools_ = {};
+  std::vector<memory_pool<Policy, Size>*> pools_ = {};
   memory_pool<Policy, Size>* pool_resource_ = nullptr;
-  std::size_t pool_index_ = 0;
-
-  // Notifier that the pool manager won't keep
-  // chaining memory pools while MaxPoolChained is reached
-  bool stopped_chaining_ = false;
 
 public:
   pool_manager() = default ;
 
   // Non-copyable and non-movable
-
+  pool_manager(const pool_manager& pool) = delete;
+  pool_manager& operator=(const pool_manager& pool) = delete ;
 
   // On construction set the first element
   // of the array to the start of the first pool
   auto inline constexpr operator()(tip::memory_pool<Policy,Size>& pool) -> void {
-    if constexpr (MaxPoolsChained != 0 || !Policy::pool_chaining) {
+    pools_.reserve(MAX_CHAIN_BEFORE_ALLOC) ;
+    if constexpr (Policy::pool_chaining) {
           // This is bad . Mark my words
-          pools_[pool_index_] = &pool;
           pool_resource_ = &pool;
-
-          pool_index_++;
     }
   }
 
-  // Default destructor
   // The pools clean up after
-  // themselves
-  ~pool_manager() = default ;
+  // themselves , we only need
+  // to clean the pointers we
+  // got from new
+  ~pool_manager(){
+      for(auto* ptr : pools_){
+              delete ptr ;
+      }
+  }
 
   // One API creating the next pool
   // and making the necessary changes
   // I stated
   auto inline constexpr expand_pool_chain() noexcept -> void {
-    if constexpr (MaxPoolsChained != 0 || !Policy::pool_chaining) {
-      if (stopped_chaining_) [[unlikely]] {
-        return;
-      }
-
-      if (pools_.back() != nullptr) [[unlikely]] {
-        stopped_chaining_ = true;
-        return;
-      }
-
+    if constexpr (Policy::pool_chaining) {
       // Allocate the next pool
-      auto new_pool = new memory_pool<Policy, Size>; // <- Leak exactly here
+      memory_pool<Policy,Size>* new_pool = new memory_pool<Policy, Size>(); // <- Leak exactly here
       // And save it
-      pools_[pool_index_] = new_pool;
-
-      // Make the needed resets
-      // to the main pool we are handling
-      pool_resource_->reseat_bump_pointer(new_pool->acquire_internal_pool_start()) ;
-      // Reset the capacity too . This caused a massive bug when I was implementing
-      // the pool chaining feature
-      pool_resource_->hard_capacity_reset() ;
-      // We need to also reset the internal pool start pointer . This was
-      // the other half of the bug
-      pool_resource_->reseat_internal_start_pointer(new_pool->acquire_internal_pool_start()) ;
-
-      // Increment the pool index
-      pool_index_++;
-
+      pools_.push_back(new_pool);
+      pool_resource_ = new_pool ;
       return;
     }
 
     return;
   }
+
+  [[nodiscard]] auto inline constexpr get_active_pool() const noexcept -> tip::memory_pool<Policy,Size>* {
+      return pool_resource_ ;
+  }
+
 };
 
 }// End of the tip namespace

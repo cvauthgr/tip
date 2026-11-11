@@ -16,4 +16,13 @@ benchmarks :
 main :
 	./build/tip
 
-.PHONY : generator build tests benchmarks main
+clean :
+	rm -r build
+
+debug_tests :
+	rm -r build
+	make generator_debug
+	make build
+	~/gf/gf2 ./build/run_tests
+
+.PHONY : generator build tests benchmarks main clean

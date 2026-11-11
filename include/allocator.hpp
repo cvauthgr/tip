@@ -32,7 +32,10 @@ class allocator{
         // call in case we need to chain the pool .
         // Chain the pool and call the expand() API
         // and then return to the last function called
-        tip::pool_manager<Policy,Size,MaxPoolsChained> manager_ ;
+        tip::pool_manager<Policy,Size> manager_ ;
+
+        // Check if we are using pool chaining
+        bool initialized_pool_chaining_ = false ;
 
         // Avoid the function calls to pool and receive it once here
         void* handled_pools_start_ = nullptr ;
@@ -89,6 +92,7 @@ class allocator{
                 // necessary
                 if(!pool_.template can_fit<Obj>()){
                     manager_.expand_pool_chain() ;
+                    initialized_pool_chaining_ = true ;
                     // We also need to update the
                     // handled pool's start change
                     //
@@ -103,8 +107,14 @@ class allocator{
                 }
             }
 
+            Obj* location = nullptr ;
 
-            auto location = pool_.template claim<Obj>() ;
+            if(initialized_pool_chaining_){
+                location = manager_.get_active_pool()->template claim<Obj>() ;
+            }else {
+                location = pool_.template claim<Obj>() ;
+            }
+
 
             if constexpr (Policy::nullptr_checks) {
                 // A nullptr check will prevent the
@@ -146,6 +156,7 @@ class allocator{
                 // necessary
                 if(!pool_.template can_fit<Obj>(count)){
                     manager_.expand_pool_chain() ;
+                    initialized_pool_chaining_ = true ;
                     // We also need to update the
                     // handled pool's start change
                     //
@@ -160,7 +171,13 @@ class allocator{
                 }
             }
 
-            auto location = pool_.template claim_array<Obj>(count) ;
+            Obj* location = nullptr ;
+
+            if(initialized_pool_chaining_){
+                location = manager_.get_active_pool()->template claim_array<Obj>(count) ;
+            }else {
+                location = pool_.template claim_array<Obj>(count) ;
+            }
 
             if constexpr (Policy::nullptr_checks){
                 if(!static_cast<bool>(location)){

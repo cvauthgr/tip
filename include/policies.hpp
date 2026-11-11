@@ -16,7 +16,6 @@ struct default_policy{
     static constexpr bool upstream_resource      = false ;
     static constexpr bool pool_chaining          = false ;
     static constexpr bool fallback_to_new        = false ;
-    static constexpr bool easy_crash             = false ;
 };
 
 struct resilient_policy : default_policy {
@@ -29,7 +28,6 @@ struct resilient_policy : default_policy {
     static constexpr bool size_check_validations = true ;
     static constexpr bool upstream_resource      = true ;
     static constexpr bool fallback_to_new        = true ;
-    static constexpr bool easy_crash             = true ;
 };
 
 struct unsafe : default_policy {

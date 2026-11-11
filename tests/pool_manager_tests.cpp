@@ -1,14 +1,20 @@
+#include <vector>
 #include <cstddef>
 #include <gtest/gtest.h>
+#include <vector>
 
 #include "allocator.hpp"
 #include "policies.hpp"
 
+// Old tests from when pool chaining was restricted to a
+// user defined max pool chaining limit dictated by the
+// non-template argument MaxPoolsChained
+
+/*
 TEST(pool_manager , pool_chaining_on_out_of_space_allocate){
     constexpr std::size_t size = 2 ;
-    constexpr std::size_t max_pools_chained = 10 ;
 
-    tip::allocator<tip::monotonic_policy , size, max_pools_chained> allocator ;
+    tip::allocator<tip::monotonic_policy , size> allocator ;
 
     // We can fit 2 chars
     EXPECT_EQ(allocator.remaining_capacity() , 2) ;
@@ -63,9 +69,8 @@ TEST(pool_manager , pool_chaining_on_out_of_space_allocate){
 
 TEST(pool_manager , pool_chaining_on_out_of_space_allocate_array){
     constexpr std::size_t size = 128 ;
-    constexpr std::size_t max_pools_chained = 10 ;
 
-    tip::allocator<tip::monotonic_policy , size, max_pools_chained> allocator ;
+    tip::allocator<tip::monotonic_policy , size> allocator ;
 
     EXPECT_EQ(allocator.remaining_capacity() , size) ;
     auto char_sequence_1 = allocator.allocate_array<char>(100) ;
@@ -137,7 +142,7 @@ TEST(pool_manager , pool_chaining_exhaustion){
     // Execute pool chaining untill the pool
     // manager stops it
 
-    tip::allocator<tip::monotonic_policy, 128, 10> allocator ;
+    tip::allocator<tip::monotonic_policy, 128> allocator ;
 
     // We can freely allocate 128*10 = 1280 chars
     // I will save one per pool and initialize it
@@ -200,4 +205,27 @@ TEST(pool_manager , pool_chaining_exhaustion){
         EXPECT_TRUE( c9[i] == 'a') ;
         EXPECT_TRUE(c10[i] == 'a') ;
     }
+}
+*/
+
+TEST(pool_manager , infinite_pool_chaining){
+    tip::allocator<tip::monotonic_policy , 2048> allocator ;
+
+    // Pool chaining should be "infinite"
+    // and all allocated objects should stay
+    // accesible
+
+    std::vector<char*> vec = { } ;
+
+    // 1000 pools of 2048 chars
+    for(std::size_t i = {0uz} ; i < 2048*10 ; ++i){
+        vec.push_back(allocator.allocate<char>()) ;
+        ASSERT_NE(vec[i] , nullptr);
+        *vec[i] = 'a' ;
+    }
+
+    for(std::size_t i = {0uz} ; i < 2048*10 ; ++i){
+        EXPECT_EQ(*vec[i], 'a') ;
+    }
+
 }
