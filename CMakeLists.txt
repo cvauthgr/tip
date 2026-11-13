@@ -20,21 +20,12 @@ add_compile_options(
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -flto=auto -DNDEBUG")
 
-# ------------------------------------------------------------------------------
-# Core Header-Only Library
-# ------------------------------------------------------------------------------
 add_library(tip_core INTERFACE)
 target_include_directories(tip_core INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# ------------------------------------------------------------------------------
-# Main Executable
-# ------------------------------------------------------------------------------
 add_executable(tip src/main.cpp)
 target_link_libraries(tip PRIVATE tip_core)
 
-# ------------------------------------------------------------------------------
-# Tests (GoogleTest) - every .cpp under tests/ links into one runner
-# ------------------------------------------------------------------------------
 enable_testing()
 find_package(GTest REQUIRED)
 
@@ -47,9 +38,6 @@ target_link_libraries(test_bin PRIVATE tip_core GTest::gtest GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(test_bin)
 
-# ------------------------------------------------------------------------------
-# Benchmarks (Google Benchmark) - every .cpp under benchmarks/ links into one runner
-# ------------------------------------------------------------------------------
 find_package(benchmark REQUIRED)
 
 file(GLOB_RECURSE BENCH_SOURCES CONFIGURE_DEPENDS "benchmarks/*.cpp")
