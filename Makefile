@@ -8,7 +8,7 @@ build :
 	cmake --build build -j$$(nproc)
 
 tests :
-	ctest --test-dir build --output-on-failure
+	ctest --test-dir build --output-on-failure -j$$(nproc) --repeat until-fail:10000
 
 benchmarks :
 	taskset -c 2 ./build/run_benchmarks

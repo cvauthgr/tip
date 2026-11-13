@@ -156,3 +156,39 @@ TEST(memory_pool , allocate_array_valid){
         EXPECT_DOUBLE_EQ(start[i].b , 67.0f) ;
     }
 }
+
+TEST(allocator , usage_tracking_array){
+    tip::allocator<tip::tracker_policy , 4096> allocator = { } ;
+
+    [[maybe_unused]] auto ptr = allocator.allocate_array<char>(3092) ;
+    EXPECT_NE(ptr , nullptr) ;
+
+    EXPECT_EQ(allocator.acquire_usage() , 3092) ;
+}
+
+TEST(allocator , usage_tracking_single){
+    tip::allocator<tip::tracker_policy , 4096> allocator = { } ;
+
+    [[maybe_unused]] auto ptr = allocator.allocate<char>() ;
+    EXPECT_NE(ptr , nullptr) ;
+
+    EXPECT_EQ(allocator.acquire_usage() , 1) ;
+}
+
+TEST(allocator , usage_tracking_fallback_to_new_single){
+    tip::allocator<tip::tracker_policy , 2> allocator = { } ;
+
+    [[maybe_unused]] auto ptr = allocator.allocate<double>() ;
+    EXPECT_NE(ptr , nullptr) ;
+
+    EXPECT_EQ(allocator.acquire_usage() , 1) ;
+}
+
+TEST(allocator , usage_tracking_fallback_to_new_array){
+    tip::allocator<tip::tracker_policy , 2> allocator = { } ;
+
+    [[maybe_unused]] auto ptr = allocator.allocate_array<double>(10) ;
+    EXPECT_NE(ptr , nullptr) ;
+
+    EXPECT_EQ(allocator.acquire_usage() , 10) ;
+}

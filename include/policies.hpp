@@ -13,9 +13,9 @@ struct default_policy{
 
     // Allocator options
     static constexpr bool size_check_validations = true  ;
-    static constexpr bool upstream_resource      = false ;
     static constexpr bool pool_chaining          = false ;
     static constexpr bool fallback_to_new        = false ;
+    static constexpr bool enable_usage_tracking  = false ;
 };
 
 struct resilient_policy : default_policy {
@@ -26,7 +26,6 @@ struct resilient_policy : default_policy {
 
     // Allocator options
     static constexpr bool size_check_validations = true ;
-    static constexpr bool upstream_resource      = true ;
     static constexpr bool fallback_to_new        = true ;
 };
 
@@ -49,6 +48,11 @@ struct permissive_policy : default_policy {
 
 struct monotonic_policy : default_policy {
     static constexpr bool pool_chaining = true ;
+};
+
+struct tracker_policy : default_policy {
+    static constexpr bool enable_usage_tracking = true ;
+    static constexpr bool fallback_to_new       = true ;
 };
 
 }// End of the tip namespace

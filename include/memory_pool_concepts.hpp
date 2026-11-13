@@ -24,7 +24,7 @@ concept AllocatorPolicy = requires {
     {Policy::unsafe_align_ptrs}      -> std::convertible_to<bool> ;
     {Policy::size_check_validations} -> std::convertible_to<bool> ;
     {Policy::fallback_to_new}        -> std::convertible_to<bool> ;
-    {Policy::upstream_resource}      -> std::convertible_to<bool> ;
+    {Policy::enable_usage_tracking}  -> std::convertible_to<bool> ;
     {Policy::pool_chaining}          -> std::convertible_to<bool> ;
 };
 

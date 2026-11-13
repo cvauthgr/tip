@@ -6,3 +6,4 @@ compile_commands.json
 /docs/tasks.md
 /docs/TODO.md
 .profkit
+.cache/

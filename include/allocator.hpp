@@ -40,6 +40,10 @@ class allocator{
         // Avoid the function calls to pool and receive it once here
         void* handled_pools_start_ = nullptr ;
 
+        // Usage tracker . Just a dumb
+        // object counter
+        std::size_t max_objects_at_run_ = 0 ;
+
     public:
 
         allocator(){
@@ -65,6 +69,9 @@ class allocator{
         [[nodiscard]] auto allocate() -> Obj* {
             if constexpr (Policy::fallback_to_new && Policy::size_check_validations) {
                 if(switched_to_fallback_){
+                    if constexpr (Policy::enable_usage_tracking) {
+                        max_objects_at_run_ += 1 ;
+                    }
                     return new Obj() ;
                 }
                 // Check for the worst case scenario if the object fits
@@ -78,6 +85,9 @@ class allocator{
 
                 if(!pool_.owns(reinterpret_cast<const void*>(worst_scenario_offset))){
                     switched_to_fallback_ = true ;
+                    if constexpr (Policy::enable_usage_tracking) {
+                        max_objects_at_run_ += 1 ;
+                    }
                     return new Obj() ;
                 }
             }
@@ -125,6 +135,10 @@ class allocator{
                 }
             }
 
+            if constexpr (Policy::enable_usage_tracking) {
+                max_objects_at_run_ += 1 ;
+            }
+
             return std::start_lifetime_as<Obj>(location) ;
         }
 
@@ -133,6 +147,9 @@ class allocator{
         [[nodiscard]] auto allocate_array(std::size_t count) -> Obj* {
             if constexpr (Policy::fallback_to_new && Policy::size_check_validations) {
                 if(switched_to_fallback_){
+                    if constexpr (Policy::enable_usage_tracking) {
+                        max_objects_at_run_ += count ;
+                    }
                     return new Obj[count]{ } ;
                 }
                 auto bump_location = pool_.acquire_bump() ;
@@ -142,6 +159,9 @@ class allocator{
 
                 if(!pool_.owns(reinterpret_cast<const void*>(worst_scenario_offset))){
                     switched_to_fallback_ = true ;
+                    if constexpr (Policy::enable_usage_tracking) {
+                        max_objects_at_run_ += count ;
+                    }
                     return new Obj[count]{ } ;
                 }
             }
@@ -185,6 +205,10 @@ class allocator{
                 }
             }
 
+            if constexpr (Policy::enable_usage_tracking) {
+                max_objects_at_run_ += count ;
+            }
+
             return std::start_lifetime_as_array<Obj>(location , count) ;
         }
 
@@ -199,6 +223,12 @@ class allocator{
         inline auto reclaim_memory() noexcept -> void {
             pool_.reclaim() ;
             return ;
+        }
+
+        // Safe to call with any policy , will return 0
+        // if the policy is disabled
+        inline auto acquire_usage() noexcept -> std::size_t {
+            return max_objects_at_run_ ;
         }
 
         // For benchmarking use ONLY
